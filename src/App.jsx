@@ -11,6 +11,27 @@ import { DashboardScreen } from "./screens/DashboardScreen";
 import { DecisionsScreen } from "./screens/DecisionsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 
+const rand  = (min, max) => Math.random() * (max - min) + min;
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+function generateFactors(riskScore, affectedArea) {
+  const area       = affectedArea.toLowerCase();
+  const isAuth     = /auth|login|session|token/.test(area);
+  const isPayment  = /payment|stripe|billing/.test(area);
+  const isSecurity = /security|middleware|policy/.test(area);
+  const isUtils    = /utils|constants|helper/.test(area);
+  const base = riskScore;
+
+  return [
+    { w:35, s: isAuth||isPayment  ? clamp(base + rand(-1,1), 0, 10)          : clamp(base * 0.6 + rand(-1,1),    0, 10) },
+    { w:25, s: isUtils            ? clamp(base * 0.3 + rand(-0.5,0.5), 0, 10): clamp(base * 0.5 + rand(-1,1),    0, 10) },
+    { w:15, s: isSecurity         ? clamp(base + rand(-0.5,0.5), 0, 10)       : clamp(base * 0.7 + rand(-1.5,1.5),0, 10) },
+    { w:10, s: clamp(base * 0.8 + rand(-2,0),          0, 10) },
+    { w:10, s: clamp(base * 0.4 + rand(-1,1),          0, 10) },
+    { w:5,  s: clamp(base * 0.3 + rand(-0.5,0.5),      0, 10) },
+  ].map(f => ({ ...f, s: Math.round(f.s * 10) / 10 }));
+}
+
 export default function SovereignApp() {
   const [nav, setNav]               = useState("prompt");
   const [lang, setLang]             = useState("tr");
@@ -54,6 +75,7 @@ export default function SovereignApp() {
         reason: score >= 7 ? r.high : score >= 4 ? r.medium : r.low,
         traceId:`${Math.random().toString(36).slice(2,10)}-${Math.random().toString(36).slice(2,6)}`,
         ago: lang === "tr" ? "Az önce" : "Just now",
+        factors: generateFactors(score, input.slice(0, 48)),
       };
       setMain(card);
       setMainKey(k => k + 1);
