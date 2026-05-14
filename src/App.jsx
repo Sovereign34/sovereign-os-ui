@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { T } from "./tokens";
 import { LANG } from "./lang";
 import { INIT_CARDS, NAV_ICONS } from "./data";
@@ -10,9 +10,11 @@ import { RightPanelContent } from "./components/RightPanel";
 import { DashboardScreen } from "./screens/DashboardScreen";
 import { DecisionsScreen } from "./screens/DecisionsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { fetchDecisions, respondDecision } from "./api/decisionsApi";
 
 const rand  = (min, max) => Math.random() * (max - min) + min;
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const POLL_INTERVAL = 30_000;
 
 function generateFactors(riskScore, affectedArea) {
   const area       = affectedArea.toLowerCase();
@@ -21,7 +23,6 @@ function generateFactors(riskScore, affectedArea) {
   const isSecurity = /security|middleware|policy/.test(area);
   const isUtils    = /utils|constants|helper/.test(area);
   const base = riskScore;
-
   return [
     { w:35, s: isAuth||isPayment  ? clamp(base + rand(-1,1), 0, 10)          : clamp(base * 0.6 + rand(-1,1),    0, 10) },
     { w:25, s: isUtils            ? clamp(base * 0.3 + rand(-0.5,0.5), 0, 10): clamp(base * 0.5 + rand(-1,1),    0, 10) },
@@ -42,10 +43,38 @@ export default function SovereignApp() {
   const [cards, setCards]           = useState(INIT_CARDS);
   const [autoCount, setAutoCount]   = useState(14);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [loadingCards, setLoadingCards] = useState(false);
+  const [engineError, setEngineError]   = useState(null);
 
+  const pollRef = useRef(null);
   const { isMobile, isDesktop } = useBreakpoint();
-  const L         = LANG[lang];
+  const L = LANG[lang];
   const canAnalyze = !!input.trim() && !analyzing;
+
+  // ── Engine'den kararları çek ──────────────────────────
+  const loadFromEngine = useCallback(async (silent = false) => {
+    if (!silent) setLoadingCards(true);
+    setEngineError(null);
+    try {
+      const decisions = await fetchDecisions();
+      if (decisions.length > 0) {
+        setCards(decisions);
+        setAutoCount(decisions.filter(d => d.status === "AUTO_APPROVED").length);
+      }
+    } catch (err) {
+      setEngineError(err.message);
+      // Fallback: INIT_CARDS zaten yüklü
+    } finally {
+      setLoadingCards(false);
+    }
+  }, []);
+
+  // ── İlk yükleme + polling ─────────────────────────────
+  useEffect(() => {
+    loadFromEngine();
+    pollRef.current = setInterval(() => loadFromEngine(true), POLL_INTERVAL);
+    return () => clearInterval(pollRef.current);
+  }, [loadFromEngine]);
 
   const analyze = useCallback(() => {
     if (!input.trim() || analyzing) return;
@@ -89,10 +118,12 @@ export default function SovereignApp() {
   const approve = (id) => {
     setCards(p => p.map(c => c.id === id ? { ...c, status:"APPROVED" } : c));
     if (main?.id === id) setMain(d => d && { ...d, status:"APPROVED" });
+    respondDecision(id, "APPROVE");
   };
   const reject = (id) => {
     setCards(p => p.map(c => c.id === id ? { ...c, status:"REJECTED" } : c));
     if (main?.id === id) setMain(d => d && { ...d, status:"REJECTED" });
+    respondDecision(id, "REJECT");
   };
   const clearAll = () => {
     setCards(INIT_CARDS);
@@ -109,7 +140,7 @@ export default function SovereignApp() {
       <GlobalStyle />
       <div className="sv">
 
-        {/* ── SIDEBAR — desktop only (≥1024px) ── */}
+        {/* ── SIDEBAR ── */}
         <div className="z sidebar-desktop" style={{
           width: isDesktop ? 80 : 56, flexShrink:0,
           flexDirection:"column", alignItems:"center",
@@ -181,12 +212,22 @@ export default function SovereignApp() {
               </div>
             </div>
 
+            {/* Engine hata banner */}
+            {engineError && (
+              <div style={{
+                padding:"8px 12px", marginBottom:16, borderRadius:8,
+                background:`${T.danger}14`, border:`1px solid ${T.danger}40`,
+                fontSize:11, color:T.danger, fontFamily:"'JetBrains Mono',monospace",
+              }}>
+                ⚠ Engine bağlantısı kurulamadı — yerel veriler gösteriliyor
+              </div>
+            )}
+
             {/* ── PROMPT TAB ── */}
             {nav === "prompt" && (<>
               <div className="pw" style={{
                 background:T.bgSurface, border:`1px solid ${T.border}`,
                 borderRadius:12, padding:20,
-                transition:"border-color .15s, box-shadow .15s",
               }}>
                 <label style={{
                   display:"block", fontSize:9, fontWeight:700,
@@ -221,17 +262,11 @@ export default function SovereignApp() {
                 }}
               >
                 {analyzing ? (
-                  <>
-                    {[0,1,2].map(i => (
-                      <span key={i} className={`db${i}`} style={{ width:5, height:5, borderRadius:"50%", background:T.accent, display:"inline-block" }} />
-                    ))}
-                    <span>{L.analyzing}</span>
-                  </>
+                  <>{[0,1,2].map(i => (
+                    <span key={i} className={`db${i}`} style={{ width:5, height:5, borderRadius:"50%", background:T.accent, display:"inline-block" }} />
+                  ))}<span>{L.analyzing}</span></>
                 ) : (
-                  <>
-                    <span>{L.analyzeBtn}</span>
-                    <span style={{ opacity:.38, fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>⌘↵</span>
-                  </>
+                  <><span>{L.analyzeBtn}</span><span style={{ opacity:.38, fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>⌘↵</span></>
                 )}
               </button>
 
@@ -241,17 +276,25 @@ export default function SovereignApp() {
               )}
             </>)}
 
-            {/* ── DASHBOARD TAB ── */}
             {nav === "dash" && (
-              <DashboardScreen cards={cards} autoCount={autoCount} lang={lang} onGoPrompt={() => setNav("prompt")} />
+              <DashboardScreen
+                cards={cards} autoCount={autoCount} lang={lang}
+                onGoPrompt={() => setNav("prompt")}
+                loadingCards={loadingCards}
+                onRefresh={() => loadFromEngine()}
+              />
             )}
 
-            {/* ── DECISIONS TAB ── */}
             {nav === "dec" && (
-              <DecisionsScreen cards={cards} lang={lang} onGoPrompt={() => setNav("prompt")} approve={approve} reject={reject} />
+              <DecisionsScreen
+                cards={cards} lang={lang}
+                onGoPrompt={() => setNav("prompt")}
+                approve={approve} reject={reject}
+                loadingCards={loadingCards}
+                onRefresh={() => loadFromEngine()}
+              />
             )}
 
-            {/* ── SETTINGS TAB ── */}
             {nav === "set" && (
               <SettingsScreen lang={lang} onLangChange={setLang} onClear={clearAll} />
             )}
@@ -259,7 +302,7 @@ export default function SovereignApp() {
           </div>
         </div>
 
-        {/* ── SAĞ PANEL — desktop (≥900px) ── */}
+        {/* ── SAĞ PANEL — desktop ── */}
         <div className="z right-panel-desktop" style={{
           width:272, flexShrink:0,
           borderLeft:`1px solid ${T.border}`,
@@ -273,10 +316,8 @@ export default function SovereignApp() {
           />
         </div>
 
-        {/* ── SAĞ PANEL — drawer (<900px) ── */}
-        {drawerOpen && (
-          <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />
-        )}
+        {/* ── SAĞ PANEL — drawer ── */}
+        {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
         <div className={`z right-panel-drawer${drawerOpen ? " open" : ""}`} style={{
           background:T.bgSurface, borderLeft:`1px solid ${T.border}`,
           display:"flex", flexDirection:"column",
@@ -300,14 +341,10 @@ export default function SovereignApp() {
           />
         </div>
 
-        {/* ── DRAWER TOGGLE — tablet ── */}
         {!isMobile && (
-          <button className="drawer-toggle" onClick={() => setDrawerOpen(v => !v)} title={L.decisionFlow}>
-            ⚖
-          </button>
+          <button className="drawer-toggle" onClick={() => setDrawerOpen(v => !v)} title={L.decisionFlow}>⚖</button>
         )}
 
-        {/* ── BOTTOM NAV — mobile (<640px) ── */}
         <nav className="bottom-nav">
           {NAV_ICONS.map((icon, i) => {
             const id     = ["prompt","dash","dec","set"][i];
