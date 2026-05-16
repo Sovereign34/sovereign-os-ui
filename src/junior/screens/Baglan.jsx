@@ -17,6 +17,11 @@ export default function Baglan() {
     memory: "checking",
   });
 
+  const [githubToken,    setGithubToken]    = useState(() => localStorage.getItem("github_token") ?? "");
+  const [githubInput,    setGithubInput]    = useState("");
+  const [githubFormOpen, setGithubFormOpen] = useState(false);
+  const [githubSaved,    setGithubSaved]    = useState(false);
+
   useEffect(() => {
     checkHealth();
   }, []);
@@ -52,9 +57,28 @@ export default function Baglan() {
       setHealth((h) => ({ ...h, memory: "error" }));
     }
 
-    // GitHub (localStorage token kontrolü)
-    const githubToken = localStorage.getItem("github_token");
-    setHealth((h) => ({ ...h, github: githubToken ? "ok" : "error" }));
+    // GitHub — localStorage token kontrolü
+    const token = localStorage.getItem("github_token");
+    setHealth((h) => ({ ...h, github: token ? "ok" : "error" }));
+  };
+
+  const saveGithubToken = () => {
+    const trimmed = githubInput.trim();
+    if (!trimmed) return;
+    localStorage.setItem("github_token", trimmed);
+    setGithubToken(trimmed);
+    setHealth((h) => ({ ...h, github: "ok" }));
+    setGithubInput("");
+    setGithubFormOpen(false);
+    setGithubSaved(true);
+    setTimeout(() => setGithubSaved(false), 2500);
+  };
+
+  const removeGithubToken = () => {
+    localStorage.removeItem("github_token");
+    setGithubToken("");
+    setHealth((h) => ({ ...h, github: "error" }));
+    setGithubFormOpen(false);
   };
 
   const DOT = {
@@ -81,18 +105,119 @@ export default function Baglan() {
       <div className="service-list">
         {SERVICES.map((s) => {
           const status = health[s.key];
+          const isGithub = s.key === "github";
+
           return (
-            <div key={s.key} className="service-row">
-              <div className="service-indicator">
-                {DOT[status]}
+            <div key={s.key} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              {/* Servis satırı */}
+              <div className="service-row" style={{ borderRadius: isGithub && githubFormOpen ? "10px 10px 0 0" : 10 }}>
+                <div className="service-indicator">{DOT[status]}</div>
+                <div className="service-info">
+                  <span className="service-label">{s.label}</span>
+                  <span className="service-desc">
+                    {isGithub && githubToken
+                      ? `ghp_${"•".repeat(8)}${githubToken.slice(-4)}`
+                      : s.desc}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className={`service-status service-status-${status}`}>
+                    {LABEL[status]}
+                  </div>
+                  {isGithub && (
+                    <button
+                      className="btn-secondary"
+                      style={{ fontSize: 11, padding: "4px 10px" }}
+                      onClick={() => {
+                        setGithubInput("");
+                        setGithubFormOpen((v) => !v);
+                      }}
+                    >
+                      {githubFormOpen ? "İptal" : githubToken ? "Değiştir" : "Bağla"}
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="service-info">
-                <span className="service-label">{s.label}</span>
-                <span className="service-desc">{s.desc}</span>
-              </div>
-              <div className={`service-status service-status-${status}`}>
-                {LABEL[status]}
-              </div>
+
+              {/* GitHub token formu */}
+              {isGithub && githubFormOpen && (
+                <div style={{
+                  background: "var(--bg-elevated, #1a1a1a)",
+                  border: "1px solid var(--border, #2a2a2a)",
+                  borderTop: "none",
+                  borderRadius: "0 0 10px 10px",
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  animation: "fade-in 0.2s ease",
+                }}>
+                  <label style={{
+                    fontSize: 10, fontWeight: 700, letterSpacing: ".12em",
+                    color: "var(--text-tertiary, #555)",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>
+                    GITHUB PERSONAL ACCESS TOKEN
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                    value={githubInput}
+                    onChange={(e) => setGithubInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && saveGithubToken()}
+                    autoFocus
+                    style={{
+                      width: "100%", boxSizing: "border-box",
+                      padding: "9px 12px",
+                      borderRadius: 7,
+                      border: "1px solid var(--border, #2a2a2a)",
+                      background: "var(--bg-primary, #0a0a0a)",
+                      color: "var(--text-primary, #e5e5e5)",
+                      fontSize: 13,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      outline: "none",
+                      caretColor: "var(--accent, #7C3AED)",
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary, #555)", lineHeight: 1.5 }}>
+                    GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
+                    <br />
+                    <span style={{ color: "var(--accent, #7C3AED)" }}>repo</span> yetkisi yeterli.
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      className="btn-primary"
+                      disabled={!githubInput.trim()}
+                      onClick={saveGithubToken}
+                      style={{ flex: 1 }}
+                    >
+                      Kaydet
+                    </button>
+                    {githubToken && (
+                      <button
+                        className="btn-secondary"
+                        onClick={removeGithubToken}
+                        style={{ color: "var(--danger, #ef4444)", borderColor: "rgba(239,68,68,.3)" }}
+                      >
+                        Kaldır
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Kayıt başarılı bildirimi */}
+              {isGithub && githubSaved && (
+                <div style={{
+                  marginTop: 6, padding: "7px 12px", borderRadius: 7,
+                  background: "rgba(45,212,191,.08)",
+                  border: "1px solid rgba(45,212,191,.25)",
+                  fontSize: 12, color: "var(--success, #2dd4bf)",
+                  animation: "fade-in 0.2s ease",
+                }}>
+                  ✓ GitHub token kaydedildi
+                </div>
+              )}
             </div>
           );
         })}
