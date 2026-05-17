@@ -4,6 +4,131 @@ import { T } from "../../tokens";
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL;
 const API_URL = "https://api.anthropic.com/v1/messages";
 
+// ── ŞİFRE KAPISI (Backend doğrulama) ─────────────────────────
+function PasswordGate({ onUnlock }) {
+  const [input, setInput]     = useState("");
+  const [error, setError]     = useState(false);
+  const [shake, setShake]     = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleCheck = async () => {
+    if (!input || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${ENGINE_URL}/api/auth/verify-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: input }),
+      });
+
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem("se_token", token);
+        onUnlock();
+      } else {
+        setError(true);
+        setShake(true);
+        setInput("");
+        setTimeout(() => { setError(false); setShake(false); }, 1500);
+      }
+    } catch {
+      setError(true);
+      setShake(true);
+      setTimeout(() => { setError(false); setShake(false); }, 1500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "24px",
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 360,
+        background: T.bgSurface, border: `1px solid ${T.border}`,
+        borderRadius: 16, padding: "32px 24px",
+        animation: shake ? "shake .4s ease" : "none",
+      }}>
+        {/* Logo */}
+        <div style={{
+          width: 44, height: 44, borderRadius: 11,
+          background: `linear-gradient(135deg,${T.accent},#9061F9)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 20, color: "#fff", fontWeight: 800,
+          marginBottom: 20,
+        }}>S</div>
+
+        <div style={{ fontSize: 17, fontWeight: 700, color: T.textPrimary, marginBottom: 6 }}>
+          Sovereign Engine
+        </div>
+        <div style={{
+          fontSize: 12, color: T.textSecondary, marginBottom: 24,
+          fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.6,
+        }}>
+          Erişim için şifre gerekli.
+        </div>
+
+        <input
+          type="password"
+          placeholder="Şifre"
+          value={input}
+          autoFocus
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleCheck()}
+          style={{
+            width: "100%", background: T.bgPrimary,
+            border: `1px solid ${error ? T.danger : T.border}`,
+            borderRadius: 9, padding: "12px 14px",
+            color: T.textPrimary, fontSize: 14,
+            fontFamily: "'JetBrains Mono',monospace",
+            outline: "none", marginBottom: 12,
+            caretColor: T.accent, boxSizing: "border-box",
+            transition: "border-color .15s",
+          }}
+        />
+
+        {error && (
+          <div style={{
+            fontSize: 11, color: T.danger,
+            fontFamily: "'JetBrains Mono',monospace",
+            marginBottom: 10,
+          }}>
+            ✗ Hatalı şifre
+          </div>
+        )}
+
+        <button
+          onClick={handleCheck}
+          disabled={!input || loading}
+          style={{
+            width: "100%", padding: "12px",
+            borderRadius: 9, border: "none",
+            background: input && !loading ? T.accent : T.bgElevated,
+            color: input && !loading ? "#fff" : T.textTertiary,
+            fontSize: 13, fontWeight: 700,
+            cursor: input && !loading ? "pointer" : "not-allowed",
+            fontFamily: "inherit", transition: "all .15s",
+          }}
+        >
+          {loading ? "Doğrulanıyor..." : "Giriş →"}
+        </button>
+      </div>
+
+      <style>{`
+        @keyframes shake {
+          0%,100%{transform:translateX(0);}
+          20%{transform:translateX(-8px);}
+          40%{transform:translateX(8px);}
+          60%{transform:translateX(-5px);}
+          80%{transform:translateX(5px);}
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ── API KEY EKRANI ────────────────────────────────────────────
 function ApiKeySetup({ onSave }) {
   const [input, setInput] = useState("");
@@ -211,6 +336,9 @@ function TypingIndicator() {
 
 // ── ANA CHAT EKRANI ───────────────────────────────────────────
 export default function ChatScreen() {
+  const [unlocked, setUnlocked] = useState(
+    () => !!sessionStorage.getItem("se_token")
+  );
   const [apiKey, setApiKey] = useState(
     () => localStorage.getItem("anthropic_api_key") ?? ""
   );
@@ -230,6 +358,12 @@ export default function ChatScreen() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  // ── Şifre kapısı ─────────────────────────────────────────
+  if (!unlocked) {
+    return <PasswordGate onUnlock={() => setUnlocked(true)} />;
+  }
+
+  // ── API Key kapısı ────────────────────────────────────────
   if (!apiKey) {
     return <ApiKeySetup onSave={setApiKey} />;
   }
