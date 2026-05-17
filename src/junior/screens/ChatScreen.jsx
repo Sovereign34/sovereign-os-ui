@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { T } from "../../tokens";
 
-const ENGINE_URL = import.meta.env.VITE_ENGINE_URL;
+const ENGINE_URL = import.meta.env.VITE_ENGINE_URL || "https://sovereign-engine-production-2e21.up.railway.app";
 const API_URL = "https://api.anthropic.com/v1/messages";
 
 // ── ŞİFRE KAPISI (Backend doğrulama) ─────────────────────────
