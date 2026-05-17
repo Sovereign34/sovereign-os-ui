@@ -231,3 +231,21 @@
   color: var(--text-secondary, #888);
   flex-shrink: 0;
 }
+
+/* ─── MOBİL UYUMU ────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Risk detail factor satırı: label genişliği küçült */
+  .factor-label { width: 90px; font-size: 10px; }
+  .factor-score { width: 24px; font-size: 10px; }
+
+  /* Card padding küçült */
+  .decision-card { padding: 12px; }
+
+  /* Actions: buton boyutları */
+  .btn-approve,
+  .btn-reject { padding: 5px 12px; font-size: 12px; }
+  .btn-why    { padding: 5px 10px; font-size: 11px; }
+
+  /* Panel header */
+  .karar-panel-title { font-size: 12px; }
+}
