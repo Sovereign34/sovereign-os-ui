@@ -25,39 +25,6 @@ function PasswordGate({ onUnlock }) {
         const { token } = await res.json();
         sessionStorage.setItem("se_token", token);
         onUnlock();
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-};
-    const { data } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'chat_password')
-      .single();
-
-    if (data?.value === input) {
-      sessionStorage.setItem('se_token', 'se_ok');
-      onUnlock();
-    } else {
-      throw new Error('wrong');
-    }
-  } catch {
-    setError(true);
-    setShake(true);
-    setInput('');
-    setTimeout(() => { setError(false); setShake(false); }, 1500);
-  } finally {
-    setLoading(false);
-  }
-};
-
-      if (res.ok) {
-        const { token } = await res.json();
-        sessionStorage.setItem("se_token", token);
-        onUnlock();
       } else {
         setError(true);
         setShake(true);
