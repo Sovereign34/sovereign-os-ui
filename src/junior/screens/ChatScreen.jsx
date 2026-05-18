@@ -23,22 +23,22 @@ function PasswordGate({ onUnlock }) {
     if (!input || loading) return;
     setLoading(true);
     try {
-      const res = await fetch(`${ENGINE_URL}/api/auth/verify-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: input }),
-      });
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'chat_password')
+        .single();
 
-      if (res.ok) {
-        const { token } = await res.json();
-        sessionStorage.setItem("se_token", token);
+      if (error || !data) throw new Error('settings_not_found');
+
+      if (input === data.value) {
+        sessionStorage.setItem('se_token', 'se_ok');
         onUnlock();
-        return;
+      } else {
+        triggerError('Hatali sifre');
       }
-
-      triggerError(res.status === 401 ? "Hatali sifre" : `Sunucu hatasi (${res.status})`);
     } catch {
-      triggerError("Baglanti hatasi — Railway erisилemiyor");
+      triggerError('Baglanti hatasi');
     } finally {
       setLoading(false);
     }
