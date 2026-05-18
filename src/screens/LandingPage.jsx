@@ -17,6 +17,9 @@ const T = {
   accentGlow:   "#7C3AED28",
 };
 
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 const getRiskColor = (s) => s <= 3 ? T.success : s <= 6 ? T.warning : T.danger;
 
 // ── GLOBAL CSS ─────────────────────────────────────────────────
@@ -1234,10 +1237,26 @@ function WaitlistSection() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle"); // idle | loading | done
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!email.includes("@")) return;
     setState("loading");
-    setTimeout(() => setState("done"), 1400);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error();
+      setState("done");
+    } catch {
+      setState("idle");
+      alert("Kayıt başarısız, tekrar dene.");
+    }
   };
 
   return (
@@ -1304,7 +1323,7 @@ function WaitlistSection() {
               className="btn-primary"
               onClick={handleSubmit}
               disabled={state === "loading" || !email.includes("@")}
-              style={{ opacity: !email.includes("@") ? .5 : 1 }}
+              style={{ opacity: (!email.includes("@") || state === "loading") ? .5 : 1 }}
             >
               {state === "loading" ? (
                 <span style={{ display:"flex", alignItems:"center", gap:6 }}>
