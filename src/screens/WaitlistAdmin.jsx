@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabaseClient";
 
-const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const T = {
@@ -20,8 +21,8 @@ const T = {
 
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000;
-  if (diff < 60)   return `${Math.floor(diff)}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 60)    return `${Math.floor(diff)}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
@@ -41,11 +42,14 @@ async function fetchWaitlist() {
 }
 
 export default function WaitlistAdmin() {
-  const [rows, setRows]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
-  const [search, setSearch]   = useState("");
-  const [copied, setCopied]   = useState(false);
+  const [rows,          setRows]          = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState(null);
+  const [search,        setSearch]        = useState("");
+  const [copied,        setCopied]        = useState(false);
+  // Bu session'da magic link gönderilen emailler
+  const [invitedEmails, setInvitedEmails] = useState(new Set());
+  const [inviting,      setInviting]      = useState(null); // loading state: hangi email
 
   const load = async () => {
     setLoading(true);
@@ -73,10 +77,33 @@ export default function WaitlistAdmin() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ── Today / this week / older ──
-  const now  = Date.now();
+  // Magic Link gönder — supabase.auth.signInWithOtp
+  // Kullanıcı yoksa Supabase ilk girişte otomatik oluşturur
+  const sendMagicLink = async (email) => {
+    if (inviting || invitedEmails.has(email)) return;
+    setInviting(email);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/junior/chat`,
+        },
+      });
+      if (error) throw error;
+      setInvitedEmails(prev => new Set([...prev, email]));
+    } catch (e) {
+      alert(`❌ Gönderilemedi: ${e.message}`);
+    } finally {
+      setInviting(null);
+    }
+  };
+
+  const now   = Date.now();
   const today = rows.filter(r => now - new Date(r.created_at) < 86400000).length;
   const week  = rows.filter(r => now - new Date(r.created_at) < 604800000).length;
+
+  // Kaç davet gönderildi (bu session)
+  const invitedCount = invitedEmails.size;
 
   return (
     <div style={{
@@ -92,9 +119,10 @@ export default function WaitlistAdmin() {
         @keyframes fade-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spin { to{transform:rotate(360deg)} }
         .row-hover:hover { background:${T.bgElevated} !important; }
+        .invite-btn:hover:not(:disabled) { opacity:.85; }
       `}</style>
 
-      <div style={{ maxWidth:900, margin:"0 auto" }}>
+      <div style={{ maxWidth:980, margin:"0 auto" }}>
 
         {/* Header */}
         <div style={{ marginBottom:32 }}>
@@ -111,18 +139,19 @@ export default function WaitlistAdmin() {
 
         {/* Stats row */}
         <div style={{
-          display:"grid", gridTemplateColumns:"repeat(3,1fr)",
+          display:"grid", gridTemplateColumns:"repeat(4,1fr)",
           gap:1, borderRadius:12, overflow:"hidden",
           border:`1px solid ${T.border}`, marginBottom:24,
         }}>
           {[
-            { label:"TOTAL", value:rows.length, color:T.textPrimary },
-            { label:"TODAY",     value:today,      color:T.success },
-            { label:"THIS WEEK", value:week,        color:T.accent },
+            { label:"TOTAL",    value:rows.length,    color:T.textPrimary },
+            { label:"TODAY",    value:today,           color:T.success },
+            { label:"THIS WEEK",value:week,            color:T.accent },
+            { label:"INVITED",  value:invitedCount,    color:T.warning },
           ].map((s, i) => (
             <div key={i} style={{
               padding:"18px 20px", background:T.bgSurface,
-              borderRight: i < 2 ? `1px solid ${T.border}` : "none",
+              borderRight: i < 3 ? `1px solid ${T.border}` : "none",
               textAlign:"center",
             }}>
               <div style={{
@@ -181,11 +210,11 @@ export default function WaitlistAdmin() {
 
           {/* Table header */}
           <div style={{
-            display:"grid", gridTemplateColumns:"40px 1fr 160px 80px",
+            display:"grid", gridTemplateColumns:"40px 1fr 160px 80px 130px",
             padding:"10px 20px", background:T.bgElevated,
             borderBottom:`1px solid ${T.border}`,
           }}>
-            {["#","EMAIL","KAYIT TARİHİ","NE ZAMAN"].map(h => (
+            {["#","EMAIL","KAYIT TARİHİ","NE ZAMAN","AKSİYON"].map(h => (
               <span key={h} style={{
                 fontSize:9, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace",
                 fontWeight:700, letterSpacing:".14em",
@@ -221,41 +250,73 @@ export default function WaitlistAdmin() {
               </div>
             </div>
           ) : (
-            filtered.map((r, i) => (
-              <div
-                key={r.id}
-                className="row-hover"
-                style={{
-                  display:"grid", gridTemplateColumns:"40px 1fr 160px 80px",
-                  padding:"12px 20px", background:T.bgSurface,
-                  borderBottom: i < filtered.length - 1 ? `1px solid ${T.borderSubtle}` : "none",
-                  animation:`fade-in .2s ${i * 0.02}s both`,
-                  transition:"background .15s",
-                }}
-              >
-                <span style={{ fontSize:11, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace", paddingTop:1 }}>
-                  {rows.length - rows.findIndex(x => x.id === r.id)}
-                </span>
-                <span style={{ fontSize:13, color:T.textPrimary, fontWeight:500 }}>
-                  {r.email}
-                </span>
-                <span style={{ fontSize:11, color:T.textSecondary, fontFamily:"'JetBrains Mono',monospace" }}>
-                  {new Date(r.created_at).toLocaleDateString("tr-TR", {
-                    day:"2-digit", month:"short", year:"numeric",
-                    hour:"2-digit", minute:"2-digit",
-                  })}
-                </span>
-                <span style={{ fontSize:11, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>
-                  {timeAgo(r.created_at)}
-                </span>
-              </div>
-            ))
+            filtered.map((r, i) => {
+              const alreadyInvited = invitedEmails.has(r.email) || !!r.invited_at;
+              const isSending      = inviting === r.email;
+
+              return (
+                <div
+                  key={r.id}
+                  className="row-hover"
+                  style={{
+                    display:"grid", gridTemplateColumns:"40px 1fr 160px 80px 130px",
+                    padding:"12px 20px", background:T.bgSurface,
+                    borderBottom: i < filtered.length - 1 ? `1px solid ${T.borderSubtle}` : "none",
+                    animation:`fade-in .2s ${i * 0.02}s both`,
+                    transition:"background .15s",
+                    alignItems:"center",
+                  }}
+                >
+                  <span style={{ fontSize:11, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>
+                    {rows.length - rows.findIndex(x => x.id === r.id)}
+                  </span>
+                  <span style={{ fontSize:13, color:T.textPrimary, fontWeight:500 }}>
+                    {r.email}
+                  </span>
+                  <span style={{ fontSize:11, color:T.textSecondary, fontFamily:"'JetBrains Mono',monospace" }}>
+                    {new Date(r.created_at).toLocaleDateString("tr-TR", {
+                      day:"2-digit", month:"short", year:"numeric",
+                      hour:"2-digit", minute:"2-digit",
+                    })}
+                  </span>
+                  <span style={{ fontSize:11, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>
+                    {timeAgo(r.created_at)}
+                  </span>
+
+                  {/* Magic Link Butonu */}
+                  <button
+                    className="invite-btn"
+                    onClick={() => sendMagicLink(r.email)}
+                    disabled={alreadyInvited || !!inviting}
+                    style={{
+                      padding:"5px 10px", borderRadius:6, border:"none",
+                      background: alreadyInvited
+                        ? `${T.success}18`
+                        : isSending
+                          ? T.bgElevated
+                          : `${T.accent}22`,
+                      color: alreadyInvited ? T.success : isSending ? T.textTertiary : T.accent,
+                      fontSize:11, fontWeight:600,
+                      fontFamily:"'JetBrains Mono',monospace",
+                      cursor: alreadyInvited || !!inviting ? "default" : "pointer",
+                      transition:"all .15s", whiteSpace:"nowrap",
+                      border: `1px solid ${alreadyInvited ? T.success+"44" : T.accent+"33"}`,
+                    }}
+                  >
+                    {alreadyInvited ? "✅ Gönderildi" : isSending ? "..." : "Magic Link →"}
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
 
         {/* Footer count */}
         {!loading && !error && (
-          <div style={{ marginTop:12, textAlign:"right" }}>
+          <div style={{ marginTop:12, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:11, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>
+              {invitedCount > 0 && `${invitedCount} davet gönderildi bu session`}
+            </span>
             <span style={{ fontSize:11, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>
               {filtered.length} / {rows.length} kayıt gösteriliyor
             </span>
@@ -264,5 +325,4 @@ export default function WaitlistAdmin() {
       </div>
     </div>
   );
-         }
-    
+}
