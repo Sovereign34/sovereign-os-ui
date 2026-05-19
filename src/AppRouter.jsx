@@ -1,4 +1,4 @@
-// src/App.jsx (veya src/AppRouter.jsx)
+// src/AppRouter.jsx
 // Phase C — /junior rotalarına auth guard eklendi
 
 import { useState } from "react";
