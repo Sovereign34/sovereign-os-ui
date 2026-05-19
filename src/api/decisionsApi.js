@@ -1,4 +1,4 @@
-const ENGINE_URL = "https://sovereign-engine-production-2e21.up.railway.app";
+import { apiCall } from "../lib/apiClient";
 
 // ── Criticality → riskScore ──────────────────────────────
 function criticalityToRisk(criticality) {
@@ -31,7 +31,6 @@ function deriveConfidence(verdict, criticality) {
 }
 
 // ── Engine _raw'dan factors üret — { s, w } formatı ─────
-// WhyPanel ve generateFactors ile hizalı
 function deriveFactors(d) {
   const area = `${d.action ?? ""} ${d.policy ?? ""}`.toLowerCase();
 
@@ -83,22 +82,17 @@ export function mapDecision(d) {
 
 // ── GET /api/decisions ───────────────────────────────────
 export async function fetchDecisions() {
-  const res = await fetch(`${ENGINE_URL}/api/decisions`);
-  if (!res.ok) throw new Error(`Engine error: ${res.status}`);
-  const data = await res.json();
+  const data = await apiCall("/api/decisions");
   return data.map(mapDecision);
 }
 
 // ── POST /api/decisions/:id/respond ─────────────────────
 export async function respondDecision(id, action) {
   try {
-    const res = await fetch(`${ENGINE_URL}/api/decisions/${id}/respond`, {
+    return await apiCall(`/api/decisions/${id}/respond`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    if (!res.ok) throw new Error(`Respond error: ${res.status}`);
-    return await res.json();
   } catch (err) {
     console.warn("respond endpoint:", err.message);
     return null;
