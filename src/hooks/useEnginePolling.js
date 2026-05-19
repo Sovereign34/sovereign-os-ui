@@ -1,18 +1,18 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { fetchDecisions } from "../api/decisionsApi";
-import { INIT_CARDS } from "../data";
+import { fetchDecisions } from "../../api/decisionsApi";
+import { INIT_CARDS } from "../../data";
 
 const POLL_INTERVAL = 30_000;
 
 /**
  * Engine'den karar listesini çeker, 30s'de bir polling yapar.
- * App.jsx'i temiz tutar.
+ * JWT apiClient üzerinden taşınır — doğrudan fetch çağrısı yok.
  *
  * Returns: { cards, setCards, autoCount, setAutoCount, loadingCards, engineError, refresh }
  */
 export function useEnginePolling() {
-  const [cards, setCards]           = useState(INIT_CARDS);
-  const [autoCount, setAutoCount]   = useState(14);
+  const [cards, setCards]               = useState(INIT_CARDS);
+  const [autoCount, setAutoCount]       = useState(14);
   const [loadingCards, setLoadingCards] = useState(false);
   const [engineError, setEngineError]   = useState(null);
   const pollRef = useRef(null);
@@ -27,10 +27,14 @@ export function useEnginePolling() {
         setAutoCount(decisions.filter(d => d.status === "AUTO_APPROVED").length);
       }
     } catch (err) {
-      setEngineError(err.message);
+      // quota_exceeded ve session_expired → apiClient window.location ile yönlendirir
+      // diğer hatalar burada gösterilir
+      if (err.message !== "quota_exceeded" && err.message !== "session_expired") {
+        setEngineError(err.message);
+      }
       // Fallback: INIT_CARDS zaten state'te
     } finally {
-      setLoadingCards(false);
+      if (!silent) setLoadingCards(false);
     }
   }, []);
 
