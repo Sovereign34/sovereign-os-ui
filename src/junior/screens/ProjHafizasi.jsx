@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { apiCall } from "../lib/apiClient";
 
-const ENGINE_URL = import.meta.env.VITE_ENGINE_URL;
 const DEFAULT_PROJECT = "my-saas";
 
 export default function ProjHafizasi() {
@@ -17,25 +17,25 @@ export default function ProjHafizasi() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${ENGINE_URL}/memory/upload`, {
+      const data = await apiCall("/memory/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: DEFAULT_PROJECT,
-          file_name: fileName,
+          file_name:  fileName,
           content,
         }),
       });
-      if (!res.ok) throw new Error(`Hata: ${res.status}`);
-      const data = await res.json();
-      setUploads((prev) => [
+      setUploads(prev => [
         { file_name: fileName, chunks_saved: data.chunks_saved ?? data.chunks_created ?? 1 },
         ...prev,
       ]);
       setFileName("");
       setContent("");
     } catch (e) {
-      setError(e.message);
+      // feature_locked → Phase E'ye kadar göster; quota → apiCall yönlendiriyor
+      if (!e.message.startsWith("feature_locked") && e.message !== "quota_exceeded") {
+        setError(e.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -46,20 +46,19 @@ export default function ProjHafizasi() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${ENGINE_URL}/memory/query`, {
+      const data = await apiCall("/memory/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: DEFAULT_PROJECT,
           query,
           top_k: 3,
         }),
       });
-      if (!res.ok) throw new Error(`Hata: ${res.status}`);
-      const data = await res.json();
       setQueryResult(data.results || []);
     } catch (e) {
-      setError(e.message);
+      if (!e.message.startsWith("feature_locked") && e.message !== "quota_exceeded") {
+        setError(e.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -82,14 +81,14 @@ export default function ProjHafizasi() {
           className="hafiza-input"
           placeholder="Dosya adı (ör: PRD.md)"
           value={fileName}
-          onChange={(e) => setFileName(e.target.value)}
+          onChange={e => setFileName(e.target.value)}
         />
         <textarea
           className="hafiza-textarea"
           placeholder="Doküman içeriği..."
           rows={6}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={e => setContent(e.target.value)}
         />
         <button
           className="btn-primary"
@@ -119,8 +118,8 @@ export default function ProjHafizasi() {
             className="hafiza-input"
             placeholder="Ne öğrenmek istiyorsun?"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleQuery()}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleQuery()}
           />
           <button className="btn-primary" onClick={handleQuery} disabled={loading || !query}>
             Sor
