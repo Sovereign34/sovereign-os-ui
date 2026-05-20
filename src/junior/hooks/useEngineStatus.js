@@ -9,7 +9,7 @@ export function useEngineStatus() {
 
   const check = async () => {
     try {
-      const res = await fetch(`${ENGINE_URL}/health`, { signal: AbortSignal.timeout(5000) });
+      const res = await fetch(`${ENGINE_URL}/health`, { signal: AbortSignal.timeout(15000) });
       setOnline(res.ok);
     } catch {
       setOnline(false);
@@ -17,7 +17,7 @@ export function useEngineStatus() {
   };
 
   useEffect(() => {
-    check(); // ilk yüklemede hemen kontrol et
+    check();
     const interval = setInterval(check, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, []);
