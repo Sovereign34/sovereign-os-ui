@@ -1,4 +1,8 @@
 // src/stores/authStore.ts
+// Phase C — Zustand Auth Store
+// Değişiklik: user_profiles satırı yoksa otomatik INSERT (migration sonrası)
+// Değişiklik: isLoading başlangıç kontrolü düzeltildi
+
 import { create } from "zustand";
 import { supabase } from "../lib/supabaseClient";
 
@@ -45,16 +49,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       .eq("id", session.user.id)
       .single()
       .then(({ data, error }) => {
-        if (error) {
-          console.warn("[authStore] Profil çekilemedi:", error.message);
+        if (error || !data) {
+          // Profil yok — migrasyon sonrası yeni kullanıcı → otomatik oluştur
+          console.warn("[authStore] Profil bulunamadı, oluşturuluyor:", session.user.id);
+          supabase
+            .from("user_profiles")
+            .insert({
+              id: session.user.id,
+              tier: "free",
+              decision_count_this_month: 0,
+            })
+            .then(({ error: insertError }) => {
+              if (insertError) {
+                console.error("[authStore] Profil oluşturulamadı:", insertError.message);
+              } else {
+                set({ tier: "free", decisionCount: 0 });
+              }
+            });
           return;
         }
-        if (data) {
-          set({
-            tier: data.tier,
-            decisionCount: data.decision_count_this_month,
-          });
-        }
+        set({
+          tier: data.tier,
+          decisionCount: data.decision_count_this_month,
+        });
       });
   },
 
@@ -75,17 +92,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
-    // se_token temizliği (Phase C.7 gereği)
     sessionStorage.removeItem("se_token");
     set({ user: null, token: null, tier: "free", decisionCount: 0 });
   },
 }));
 
 // --- Uygulama başlangıcında session dinleyici başlat ---
-// Bu fonksiyonu main.tsx / App.tsx içinde bir kez çağır
+// main.tsx / App.tsx içinde bir kez çağır
 export function initAuthListener() {
+  // isLoading başlangıçta true — getSession tamamlanınca false olur
   supabase.auth.getSession().then(({ data: { session } }) => {
     useAuthStore.getState().setSession(session);
+    // session null ise setSession zaten isLoading: false yapar
   });
 
   supabase.auth.onAuthStateChange((_event, session) => {
