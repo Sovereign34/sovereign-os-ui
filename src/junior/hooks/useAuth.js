@@ -1,8 +1,7 @@
 // src/junior/hooks/useAuth.js
 // Phase C — Supabase Auth hook
 // Değişiklik: signInWithOtp eklendi (Magic Link — şifresiz giriş)
-// Değişiklik 2: 5sn timeout + connectionError state
-// Değişiklik 3: connectionError reset düzeltmesi + loading tek noktada yönetiliyor
+// Değişiklik 2: 15sn timeout + connectionError state
 // Kullanım: const { user, session, loading, connectionError, signIn, signInWithOtp, signOut } = useAuth()
 
 import { useEffect, useState } from "react";
@@ -15,31 +14,27 @@ export function useAuth() {
   const [connectionError, setConnectionError] = useState(false);
 
   useEffect(() => {
-    // 5 saniye içinde cevap gelmezse connection error göster
     const timeout = setTimeout(() => {
       setConnectionError(true);
       setLoading(false);
-    }, 5000);
+    }, 15000);
 
     supabase.auth.getSession().then(({ data, error }) => {
-      clearTimeout(timeout); // Timeout'u iptal et — cevap geldi
-
+      clearTimeout(timeout);
       if (error) {
         setConnectionError(true);
       } else {
-        setConnectionError(false); // DÜZELTME: timeout sonrası geç gelen cevap hata ekranını temizler
         setSession(data.session);
         setUser(data.session?.user ?? null);
       }
       setLoading(false);
     });
 
-    // Magic link ve oturum değişikliklerini dinle
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setConnectionError(false);
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      setLoading(false); // DÜZELTME: loading'i burada da kapat
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => {
