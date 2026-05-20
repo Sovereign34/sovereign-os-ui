@@ -369,41 +369,6 @@ export default function ChatScreen() {
     </div>
   );
 
-  if (connectionError) return (
-    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ textAlign: "center", fontFamily: "'JetBrains Mono',monospace", maxWidth: 280 }}>
-        <div style={{ fontSize: 32, marginBottom: 16 }}>⚠️</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: T.danger, marginBottom: 8 }}>
-          Sunucuya bağlanılamadı
-        </div>
-        <div style={{ fontSize: 11, color: T.textTertiary, lineHeight: 1.7, marginBottom: 16 }}>
-          Kimlik doğrulama servisi yanıt vermiyor.
-          Bu genellikle geçici bir altyapı sorunudur.
-        </div>
-        <div style={{
-          fontSize: 10, color: T.textTertiary,
-          background: T.bgElevated, border: `1px solid ${T.border}`,
-          borderRadius: 6, padding: "8px 12px", marginBottom: 20,
-          lineHeight: 1.6, textAlign: "left",
-        }}>
-          {errorMessage ?? "getSession() timeout"}{"\n"}
-          Durum: status.supabase.com
-        </div>
-        <button
-          onClick={() => window.location.reload()}
-          style={{
-            padding: "10px 24px", background: T.accent,
-            border: "none", borderRadius: 8,
-            color: "#0D0D0D", fontSize: 12, fontWeight: 700,
-            cursor: "pointer", fontFamily: "inherit",
-          }}
-        >
-          Tekrar Dene
-        </button>
-      </div>
-    </div>
-  );
-
   if (!user) return <LoginGate onLogin={() => {}} />;
   if (!apiKey) return <ApiKeySetup onSave={setApiKey} />;
 
