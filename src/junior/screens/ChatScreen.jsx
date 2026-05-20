@@ -1,9 +1,8 @@
 // src/junior/screens/Chat.jsx
 // Phase C — Supabase Auth entegrasyonu
-// Değişiklik 1: LoginGate → Magic Link akışı (şifre formu kaldırıldı)
-// Değişiklik 2: logToEngine → apiCall() (JWT otomatik, ENGINE_URL kaldırıldı)
-// Değişiklik 3: keyword-based risk heuristic kaldırıldı (engine risk skoru)
-// NOT: Anthropic API çağrısı korundu — ileride browser agent'a geçilecek
+// Değişiklik 1: LoginGate → Magic Link akışı
+// Değişiklik 2: logToEngine → apiCall() (JWT otomatik)
+// Değişiklik 3: connectionError ekranı eklendi
 
 import { supabase } from "../../lib/supabaseClient";
 import { apiCall }  from "../../lib/apiClient";
@@ -161,13 +160,15 @@ function LoginGate({ onLogin }) {
           60%{transform:translateX(-5px);}
           80%{transform:translateX(5px);}
         }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
       `}</style>
     </div>
   );
 }
 
 // -- API KEY EKRANI -----------------------------------------------
-// NOT: Bu ekran geçici — ileride browser agent'a geçilince kaldırılacak
 function ApiKeySetup({ onSave }) {
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
@@ -336,7 +337,7 @@ function TypingIndicator() {
 
 // -- ANA CHAT EKRANI ---------------------------------------------
 export default function ChatScreen() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, connectionError } = useAuth();
   const [apiKey,    setApiKey]    = useState(() => localStorage.getItem("anthropic_api_key") ?? "");
   const [messages,  setMessages]  = useState([
     { role: "system", content: "Sovereign Engine aktif · Her mesaj risk skorlanıyor" },
@@ -353,16 +354,59 @@ export default function ChatScreen() {
 
   if (authLoading) return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <span style={{ fontSize: 12, color: T.textTertiary, fontFamily: "'JetBrains Mono',monospace" }}>
-        Yükleniyor...
-      </span>
+      <div style={{ textAlign: "center", fontFamily: "'JetBrains Mono',monospace" }}>
+        <div style={{
+          width: 20, height: 20,
+          border: `2px solid ${T.border}`,
+          borderTopColor: T.accent,
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+          margin: "0 auto 12px",
+        }} />
+        <span style={{ fontSize: 11, color: T.textTertiary }}>Bağlanıyor...</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    </div>
+  );
+
+  if (connectionError) return (
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ textAlign: "center", fontFamily: "'JetBrains Mono',monospace", maxWidth: 280 }}>
+        <div style={{ fontSize: 32, marginBottom: 16 }}>⚠️</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.danger, marginBottom: 8 }}>
+          Sunucuya bağlanılamadı
+        </div>
+        <div style={{ fontSize: 11, color: T.textTertiary, lineHeight: 1.7, marginBottom: 16 }}>
+          Kimlik doğrulama servisi yanıt vermiyor.
+          Bu genellikle geçici bir altyapı sorunudur.
+        </div>
+        <div style={{
+          fontSize: 10, color: T.textTertiary,
+          background: T.bgElevated, border: `1px solid ${T.border}`,
+          borderRadius: 6, padding: "8px 12px", marginBottom: 20,
+          lineHeight: 1.6, textAlign: "left",
+        }}>
+          Kaynak: Supabase Auth · getSession() timeout{"\n"}
+          Durum: status.supabase.com
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            padding: "10px 24px", background: T.accent,
+            border: "none", borderRadius: 8,
+            color: "#0D0D0D", fontSize: 12, fontWeight: 700,
+            cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          Tekrar Dene
+        </button>
+      </div>
     </div>
   );
 
   if (!user) return <LoginGate onLogin={() => {}} />;
   if (!apiKey) return <ApiKeySetup onSave={setApiKey} />;
 
-  // Engine'e JWT ile log gönder — apiCall JWT'yi otomatik taşır
   const logToEngine = async (userMsg, assistantMsg, riskScore) => {
     try {
       await apiCall("/api/decisions", {
@@ -390,7 +434,6 @@ export default function ChatScreen() {
     setEngineLog(null);
 
     try {
-      // Anthropic API — ileride browser agent ile değiştirilecek
       const res = await fetch(API_URL, {
         method: "POST",
         headers: {
@@ -417,9 +460,7 @@ export default function ChatScreen() {
 
       const data  = await res.json();
       const reply = data.content?.[0]?.text ?? "";
-
-      // Risk skoru engine'den gelecek — şimdilik sabit düşük değer
-      const risk = 2;
+      const risk  = 2;
 
       setMessages(prev => [...prev, { role: "assistant", content: reply, risk }]);
       logToEngine(text, reply, risk);
