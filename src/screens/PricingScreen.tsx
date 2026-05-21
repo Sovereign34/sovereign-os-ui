@@ -89,7 +89,6 @@ export default function PricingScreen() {
   const handleCheckout = async (tier: PlanTier) => {
     if (tier === "free") return;
 
-    // Login kontrolü
     if (!userEmail) {
       navigate("/junior/baglan?redirect=/junior/fiyatlandirma");
       return;
@@ -133,7 +132,7 @@ export default function PricingScreen() {
   };
 
   const getCtaDisabled = (plan: (typeof PLANS)[number]) =>
-    isCurrentPlan(plan.tier) || loadingTier !== null;
+    isCurrentPlan(plan.tier) || loadingTier === plan.tier;
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -200,7 +199,7 @@ export default function PricingScreen() {
               <ul style={styles.featureList}>
                 {plan.features.map((f) => (
                   <li key={f} style={styles.featureItem}>
-                    <CheckIcon color={plan.highlight ? "#2DD4BF" : "#555"} />
+                    <CheckIcon color={plan.tier !== "free" ? "#2DD4BF" : "#555"} />
                     <span style={styles.featureText}>{f}</span>
                   </li>
                 ))}
@@ -210,7 +209,7 @@ export default function PricingScreen() {
               <button
                 style={{
                   ...styles.btn,
-                  ...(plan.highlight && !isCurrent
+                  ...(plan.tier !== "free" && !isCurrent
                     ? styles.btnPrimary
                     : styles.btnSecondary),
                   ...(getCtaDisabled(plan) ? styles.btnDisabled : {}),
