@@ -39,6 +39,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: 'Sovereign OS ${{ github.ref_name }}'
+          body: 'See release notes.'
+
       - name: Build desktop app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -49,12 +57,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
-          githubToken: ${{ github.token }}
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Sovereign OS ${{ github.ref_name }}'
-          releaseBody: 'See release notes.'
-          releaseDraft: true
-          prerelease: false
+          releaseId: ${{ steps.create_release.outputs.id }}
           args: ${{ matrix.args }}
 
       - name: Generate latest.json
@@ -67,7 +70,6 @@ jobs:
           $version = $tag -replace '^v', ''
           $repo    = "${{ github.repository }}"
 
-          # MSI önce, NSIS fallback
           $sigFile = Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi.zip.sig" -ErrorAction SilentlyContinue |
                      Select-Object -First 1
           if (-not $sigFile) {
