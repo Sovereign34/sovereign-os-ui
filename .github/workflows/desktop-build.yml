@@ -55,3 +55,44 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Generate latest.json
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag     = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          $repo    = "${{ github.repository }}"
+
+          # .sig dosyasını dinamik bul (productName ne olursa olsun)
+          $sigFile = Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi.zip.sig" |
+                     Select-Object -First 1
+          if (-not $sigFile) {
+            Write-Error "MSI .sig dosyasi bulunamadi"
+            exit 1
+          }
+
+          $signature = (Get-Content $sigFile.FullName -Raw).Trim()
+
+          # GitHub release download URL — dosya adı tauri-action'ın yüklediğiyle aynı
+          $msiZipName = $sigFile.BaseName  # "ProductName_x.y.z_x64_en-US.msi.zip"
+          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$msiZipName"
+
+          $latestJson = [ordered]@{
+            version  = $version
+            notes    = "See release notes."
+            pub_date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                url       = $downloadUrl
+                signature = $signature
+              }
+            }
+          } | ConvertTo-Json -Depth 5
+
+          $latestJson | Out-File -FilePath "latest.json" -Encoding utf8NoBOM
+
+          # Release'e upload et (varsa üzerine yaz)
+          gh release upload $tag latest.json --clobber
