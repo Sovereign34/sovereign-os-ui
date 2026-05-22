@@ -66,19 +66,21 @@ jobs:
           $version = $tag -replace '^v', ''
           $repo    = "${{ github.repository }}"
 
-          # .sig dosyasını dinamik bul (productName ne olursa olsun)
-          $sigFile = Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi.zip.sig" |
+          # MSI önce, NSIS fallback
+          $sigFile = Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi.zip.sig" -ErrorAction SilentlyContinue |
                      Select-Object -First 1
           if (-not $sigFile) {
-            Write-Error "MSI .sig dosyasi bulunamadi"
+            $sigFile = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.nsis.zip.sig" -ErrorAction SilentlyContinue |
+                       Select-Object -First 1
+          }
+          if (-not $sigFile) {
+            Write-Error "Hic .sig dosyasi bulunamadi"
             exit 1
           }
 
-          $signature = (Get-Content $sigFile.FullName -Raw).Trim()
-
-          # GitHub release download URL — dosya adı tauri-action'ın yüklediğiyle aynı
-          $msiZipName = $sigFile.BaseName  # "ProductName_x.y.z_x64_en-US.msi.zip"
-          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$msiZipName"
+          $signature   = (Get-Content $sigFile.FullName -Raw).Trim()
+          $zipName     = $sigFile.BaseName
+          $downloadUrl = "https://github.com/$repo/releases/download/$tag/$zipName"
 
           $latestJson = [ordered]@{
             version  = $version
@@ -93,6 +95,4 @@ jobs:
           } | ConvertTo-Json -Depth 5
 
           $latestJson | Out-File -FilePath "latest.json" -Encoding utf8NoBOM
-
-          # Release'e upload et (varsa üzerine yaz)
           gh release upload $tag latest.json --clobber
