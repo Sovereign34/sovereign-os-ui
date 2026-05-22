@@ -9,6 +9,18 @@ const SERVICES = [
   { key: "github", label: "GitHub",             desc: "Repo bağlantısı"       },
 ];
 
+// GitHub token'ı gerçek API ile doğrula
+async function verifyGithubToken(token: string): Promise<boolean> {
+  try {
+    const res = await fetch("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok; // 401 → false, 200 → true
+  } catch {
+    return false;
+  }
+}
+
 export default function Baglan() {
   const [health, setHealth] = useState({
     engine: "checking",
@@ -17,13 +29,15 @@ export default function Baglan() {
     memory: "checking",
   });
 
-  const [githubToken,    setGithubToken]    = useState(() => localStorage.getItem("github_token") ?? "");
-  const [githubRepo,     setGithubRepo]     = useState(() => localStorage.getItem("github_repo")  ?? ""); // TASK 0.6
-  const [githubInput,    setGithubInput]    = useState("");
-  const [githubRepoInput, setGithubRepoInput] = useState("");                                              // TASK 0.6
-  const [githubFormOpen, setGithubFormOpen] = useState(false);
-  const [githubSaved,    setGithubSaved]    = useState(false);
-  const [repoError,      setRepoError]      = useState("");                                                // TASK 0.6
+  const [githubToken,     setGithubToken]     = useState(() => localStorage.getItem("github_token") ?? "");
+  const [githubRepo,      setGithubRepo]       = useState(() => localStorage.getItem("github_repo")  ?? "");
+  const [githubInput,     setGithubInput]      = useState("");
+  const [githubRepoInput, setGithubRepoInput]  = useState("");
+  const [githubFormOpen,  setGithubFormOpen]   = useState(false);
+  const [githubSaved,     setGithubSaved]      = useState(false);
+  const [githubVerifying, setGithubVerifying]  = useState(false);
+  const [repoError,       setRepoError]        = useState("");
+  const [tokenError,      setTokenError]       = useState("");
 
   useEffect(() => {
     checkHealth();
@@ -60,26 +74,42 @@ export default function Baglan() {
       setHealth((h) => ({ ...h, memory: "error" }));
     }
 
-    // GitHub — token VE repo zorunlu  (TASK 0.6: repo kontrolü eklendi)
+    // GitHub — gerçek API doğrulaması
     const token = localStorage.getItem("github_token");
     const repo  = localStorage.getItem("github_repo");
-    setHealth((h) => ({ ...h, github: token && repo ? "ok" : "error" }));
+
+    if (!token) {
+      setHealth((h) => ({ ...h, github: "error" }));
+    } else {
+      const valid = await verifyGithubToken(token);
+      setHealth((h) => ({ ...h, github: valid && !!repo ? "ok" : "error" }));
+    }
   };
 
-  // TASK 0.6: saveGithubToken → saveGithubSettings (token + repo birlikte kaydedilir)
-  const saveGithubSettings = () => {
+  // Token + repo kaydetmeden önce GitHub API'yi doğrula
+  const saveGithubSettings = async () => {
     const trimmedToken = githubInput.trim();
     const trimmedRepo  = githubRepoInput.trim();
 
     if (!trimmedToken) return;
 
-    // Repo girilmişse format kontrolü
     if (trimmedRepo && !trimmedRepo.includes("/")) {
       setRepoError("Repo formatı hatalı — örnek: kullanici/repo-adi");
       return;
     }
 
     setRepoError("");
+    setTokenError("");
+    setGithubVerifying(true);
+
+    // Gerçek GitHub API kontrolü
+    const valid = await verifyGithubToken(trimmedToken);
+    setGithubVerifying(false);
+
+    if (!valid) {
+      setTokenError("Token geçersiz veya yetkisiz — GitHub'dan yeni token al.");
+      return;
+    }
 
     localStorage.setItem("github_token", trimmedToken);
     setGithubToken(trimmedToken);
@@ -99,7 +129,7 @@ export default function Baglan() {
 
   const removeGithubToken = () => {
     localStorage.removeItem("github_token");
-    localStorage.removeItem("github_repo"); // TASK 0.6: repo da temizlenir
+    localStorage.removeItem("github_repo");
     setGithubToken("");
     setGithubRepo("");
     setHealth((h) => ({ ...h, github: "error" }));
@@ -129,18 +159,16 @@ export default function Baglan() {
 
       <div className="service-list">
         {SERVICES.map((s) => {
-          const status  = health[s.key];
+          const status   = health[s.key];
           const isGithub = s.key === "github";
 
           return (
             <div key={s.key} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {/* Servis satırı */}
               <div className="service-row" style={{ borderRadius: isGithub && githubFormOpen ? "10px 10px 0 0" : 10 }}>
                 <div className="service-indicator">{DOT[status]}</div>
                 <div className="service-info">
                   <span className="service-label">{s.label}</span>
                   <span className="service-desc">
-                    {/* TASK 0.6: token varsa masked token, repo varsa repo adı gösterilir */}
                     {isGithub && githubToken
                       ? githubRepo
                         ? githubRepo
@@ -160,6 +188,7 @@ export default function Baglan() {
                         setGithubInput("");
                         setGithubRepoInput("");
                         setRepoError("");
+                        setTokenError("");
                         setGithubFormOpen((v) => !v);
                       }}
                     >
@@ -169,7 +198,7 @@ export default function Baglan() {
                 </div>
               </div>
 
-              {/* GitHub formu — token + repo */}
+              {/* GitHub formu */}
               {isGithub && githubFormOpen && (
                 <div style={{
                   background: "var(--bg-elevated, #1a1a1a)",
@@ -182,7 +211,6 @@ export default function Baglan() {
                   gap: 10,
                   animation: "fade-in 0.2s ease",
                 }}>
-                  {/* Token alanı */}
                   <label style={{
                     fontSize: 10, fontWeight: 700, letterSpacing: ".12em",
                     color: "var(--text-tertiary, #555)",
@@ -194,13 +222,13 @@ export default function Baglan() {
                     type="password"
                     placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
                     value={githubInput}
-                    onChange={(e) => setGithubInput(e.target.value)}
+                    onChange={(e) => { setGithubInput(e.target.value); setTokenError(""); }}
                     onKeyDown={(e) => e.key === "Enter" && saveGithubSettings()}
                     autoFocus
                     style={{
                       width: "100%", boxSizing: "border-box",
                       padding: "9px 12px", borderRadius: 7,
-                      border: "1px solid var(--border, #2a2a2a)",
+                      border: `1px solid ${tokenError ? "var(--danger, #ef4444)" : "var(--border, #2a2a2a)"}`,
                       background: "var(--bg-primary, #0a0a0a)",
                       color: "var(--text-primary, #e5e5e5)",
                       fontSize: 13,
@@ -209,8 +237,12 @@ export default function Baglan() {
                       caretColor: "var(--accent, #7C3AED)",
                     }}
                   />
+                  {tokenError && (
+                    <span style={{ fontSize: 11, color: "var(--danger, #ef4444)", marginTop: -4 }}>
+                      {tokenError}
+                    </span>
+                  )}
 
-                  {/* TASK 0.6 — Repo alanı */}
                   <label style={{
                     fontSize: 10, fontWeight: 700, letterSpacing: ".12em",
                     color: "var(--text-tertiary, #555)",
@@ -252,11 +284,11 @@ export default function Baglan() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       className="btn-primary"
-                      disabled={!githubInput.trim()}
+                      disabled={!githubInput.trim() || githubVerifying}
                       onClick={saveGithubSettings}
                       style={{ flex: 1 }}
                     >
-                      Kaydet
+                      {githubVerifying ? "Doğrulanıyor..." : "Kaydet"}
                     </button>
                     {githubToken && (
                       <button
@@ -271,7 +303,6 @@ export default function Baglan() {
                 </div>
               )}
 
-              {/* Kayıt başarılı bildirimi */}
               {isGithub && githubSaved && (
                 <div style={{
                   marginTop: 6, padding: "7px 12px", borderRadius: 7,
@@ -280,7 +311,7 @@ export default function Baglan() {
                   fontSize: 12, color: "var(--success, #2dd4bf)",
                   animation: "fade-in 0.2s ease",
                 }}>
-                  ✓ GitHub ayarları kaydedildi
+                  ✓ GitHub token doğrulandı ve kaydedildi
                 </div>
               )}
             </div>
