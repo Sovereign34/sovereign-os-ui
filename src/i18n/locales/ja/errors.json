@@ -1,0 +1,9 @@
+{
+  "engine_offline":  "Engineがオフラインです。再接続中...",
+  "quota_exceeded":  "月間上限に達しました。続けるにはアップグレードしてください。",
+  "auth_required":   "続けるにはサインインしてください。",
+  "feature_locked":  "この機能には{{tier}}プランが必要です。",
+  "upgrade_prompt":  "プランをアップグレード →",
+  "network_error":   "ネットワークエラー。接続を確認してください。",
+  "unknown":         "エラーが発生しました。もう一度お試しください。"
+}
