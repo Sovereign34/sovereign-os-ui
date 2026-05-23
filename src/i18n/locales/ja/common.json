@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "history":  "履歴",
+    "memory":   "メモリ",
+    "chat":     "チャット",
+    "connect":  "接続",
+    "settings": "設定",
+    "home":     "ホーム"
+  },
+  "status": {
+    "engine_active": "Engine: 🟢 稼働中",
+    "memory_ok":     "メモリ: ✓",
+    "github":        "GitHub: main",
+    "pending":       "{{count}} 件保留中",
+    "usage":         "今月: {{used}}/{{limit}} 件"
+  },
+  "actions": {
+    "upgrade":    "アップグレード →",
+    "save":       "保存",
+    "cancel":     "キャンセル",
+    "confirm":    "確認",
+    "back":       "← 戻る",
+    "loading":    "読み込み中...",
+    "connecting": "接続中..."
+  },
+  "tier": {
+    "free": "FREE",
+    "solo": "SOLO",
+    "pro":  "PRO",
+    "team": "TEAM"
+  }
+}
