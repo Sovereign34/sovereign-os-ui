@@ -73,12 +73,9 @@ jobs:
           $version = $tag -replace '^v', ''
           $repo    = "${{ github.repository }}"
 
-          $sigFile = Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi.zip.sig" -ErrorAction SilentlyContinue |
+          $sigFile = Get-ChildItem "src-tauri/target/release/bundle" -Recurse -Filter "*.sig" -ErrorAction SilentlyContinue |
                      Select-Object -First 1
-          if (-not $sigFile) {
-            $sigFile = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.nsis.zip.sig" -ErrorAction SilentlyContinue |
-                       Select-Object -First 1
-          }
+
           if (-not $sigFile) {
             Write-Error "Hic .sig dosyasi bulunamadi"
             exit 1
