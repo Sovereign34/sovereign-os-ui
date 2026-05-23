@@ -4,8 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 import AppRouter from "./AppRouter";
 import { initAuthListener } from "./stores/authStore";
 import { checkForUpdates } from "./lib/updater";
+import "./i18n";  // ← EKLE
 
-// Supabase session dinleyicisini başlat — render'dan önce
 initAuthListener();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -16,6 +16,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   </React.StrictMode>
 );
 
-// Desktop: güncelleme kontrolü
 checkForUpdates();
 setInterval(() => checkForUpdates(), 4 * 60 * 60 * 1000);
