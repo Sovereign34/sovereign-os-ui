@@ -1,0 +1,17 @@
+{
+  "sections": {
+    "subscription": "サブスクリプション",
+    "language":     "言語",
+    "risk":         "リスクしきい値",
+    "clear":        "データのクリア"
+  },
+  "free_plan":    "無料プラン",
+  "usage_full":   "{{pct}}% 使用済み",
+  "opening":      "開いています...",
+  "manage_portal":"プランを管理する",
+  "risk_note":    "このしきい値を超えるリスクスコアを持つ決定は自動的にフラグが立てられます。",
+  "clear_note":   "ローカルの会話履歴と保留中の決定をすべて削除します。この操作は取り消せません。",
+  "clear_btn":    "データをクリア",
+  "cleared":      "✓ クリア完了",
+  "version_label":"バージョン"
+}
