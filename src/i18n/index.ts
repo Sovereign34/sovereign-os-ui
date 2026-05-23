@@ -72,7 +72,6 @@ i18n
         errors:   deErrors,
       },
     },
-    lng: 'en',
     fallbackLng: 'en',
     defaultNS: 'common',
     interpolation: {
