@@ -1,6 +1,6 @@
 // src/i18n/LanguageSelector.jsx
 // Faz 4 — Standalone dil seçici
-// localStorage: i18n detection config üzerinden otomatik (caches: ['localStorage'])
+// JA + DE eklendi
 
 import { useState } from "react";
 import i18n from "./index";
@@ -9,11 +9,12 @@ import { T } from "../tokens";
 const LANGUAGES = [
   { code: "en", flag: "🇬🇧", label: "EN" },
   { code: "tr", flag: "🇹🇷", label: "TR" },
+  { code: "ja", flag: "🇯🇵", label: "JA" },
+  { code: "de", flag: "🇩🇪", label: "DE" },
 ];
 
 export function LanguageSelector() {
   const [current, setCurrent] = useState(
-    // i18n.language "en-US" gibi gelebilir — sadece ilk 2 karakteri al
     i18n.language?.slice(0, 2) ?? "en"
   );
 
@@ -63,4 +64,4 @@ export function LanguageSelector() {
       })}
     </div>
   );
-      }
+}
