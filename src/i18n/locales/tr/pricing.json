@@ -1,6 +1,18 @@
 {
-  "title": "Planını Seç",
+  "eyebrow": "FİYATLANDIRMA",
+  "headline": "Planını",
+  "headline_accent": "Seç",
   "subtitle": "Ücretsiz başla. Hazır olunca yükselt.",
+  "badge": {
+    "active": "MEVCUT",
+    "popular": "POPÜLER"
+  },
+  "current_plan": "Mevcut Plan",
+  "downgrade": "Düşür",
+  "footer": "Ödemeler Dodo Payments ile güvence altında\nİstediğin zaman iptal et.",
+  "portal_error": "Portal açılamadı. Tekrar dene.",
+  "manage": "Aboneliği Yönet →",
+  "view_plans": "Planları Gör →",
   "banner": {
     "quota_exceeded": "Aylık karar limitine ulaştın. Devam etmek için yükselt."
   },
@@ -55,8 +67,5 @@
         "Özel destek"
       ]
     }
-  },
-  "manage": "Aboneliği Yönet →",
-  "view_plans": "Planları Gör →",
-  "portal_error": "Portal açılamadı. Tekrar dene."
+  }
 }
