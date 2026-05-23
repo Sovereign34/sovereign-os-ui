@@ -1,4 +1,5 @@
-name: Desktop Build
+python3 << 'PYEOF'
+content = """name: Desktop Build
 
 on:
   push:
@@ -99,3 +100,10 @@ jobs:
 
           $latestJson | Out-File -FilePath "latest.json" -Encoding utf8NoBOM
           gh release upload $tag latest.json --clobber
+"""
+
+with open('.github/workflows/desktop-build.yml', 'w') as f:
+    f.write(content)
+
+print("Dosya yazildi!")
+PYEOF
