@@ -1,18 +1,13 @@
+// src/screens/SettingsScreen.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { T, getRiskColor } from "../tokens";
-import { LANG } from "../lang";
 import { useAuthStore } from "../stores/authStore";
 import { apiCall } from "../lib/apiClient";
 
 // ─── Tier config ──────────────────────────────────────────────────────────────
-
-const TIER_LABEL = {
-  free: "ÜCRETSİZ",
-  solo: "SOLO",
-  pro:  "PRO",
-  team: "TEAM",
-};
 
 const TIER_COLOR = {
   free: "#555",
@@ -30,22 +25,30 @@ const TIER_LIMIT = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function SettingsScreen({ lang, onLangChange, onClear }) {
-  const L = LANG[lang];
+export function SettingsScreen({ onClear }) {
   const navigate = useNavigate();
+  const { t }              = useTranslation("settings");
+  const { t: tCommon }     = useTranslation("common");
+  const { t: tPricing }    = useTranslation("pricing");
 
   const { tier, decisionCount, user } = useAuthStore();
   const userEmail = user?.email ?? "";
 
-  const [threshold, setThreshold] = useState(7);
-  const [cleared, setCleared]     = useState(false);
+  const [threshold, setThreshold]         = useState(7);
+  const [cleared, setCleared]             = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError]     = useState(null);
+  const [currentLang, setCurrentLang]     = useState(i18n.language);
 
   const handleClear = () => {
     onClear();
     setCleared(true);
     setTimeout(() => setCleared(false), 2000);
+  };
+
+  const handleLangChange = (code) => {
+    i18n.changeLanguage(code);
+    setCurrentLang(code);
   };
 
   const handlePortal = async () => {
@@ -58,16 +61,15 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
       );
       window.location.href = data.portalUrl;
     } catch {
-      setPortalError("Portal açılamadı. Lütfen tekrar dene.");
+      setPortalError(tPricing("portal_error"));
     } finally {
       setPortalLoading(false);
     }
   };
 
-  const limit = TIER_LIMIT[tier];
-  const usagePct = limit ? Math.min((decisionCount / limit) * 100, 100) : 0;
-  const usageColor =
-    usagePct > 80 ? "#EF4444" : usagePct > 60 ? "#F59E0B" : "#2DD4BF";
+  const limit     = TIER_LIMIT[tier];
+  const usagePct  = limit ? Math.min((decisionCount / limit) * 100, 100) : 0;
+  const usageColor = usagePct > 80 ? "#EF4444" : usagePct > 60 ? "#F59E0B" : "#2DD4BF";
 
   const Section = ({ title, children }) => (
     <div style={{ marginBottom: 28 }}>
@@ -86,7 +88,7 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
     <div style={{ animation: "fade-in .25s ease" }}>
 
       {/* ── Abonelik ── */}
-      <Section title="ABONELİK">
+      <Section title={t("sections.subscription")}>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <span style={{
@@ -97,27 +99,24 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
             border: `1px solid ${TIER_COLOR[tier]}44`,
             borderRadius: 20, padding: "3px 10px",
           }}>
-            {TIER_LABEL[tier]}
+            {tCommon(`tier.${tier}`)}
           </span>
           {tier === "free" && (
             <span style={{ fontSize: 11, color: T.textTertiary }}>
-              Ücretsiz plan
+              {t("free_plan")}
             </span>
           )}
         </div>
 
         {tier === "free" && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{
-              display: "flex", justifyContent: "space-between",
-              marginBottom: 6,
-            }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontSize: 11, color: T.textTertiary, fontFamily: "'JetBrains Mono',monospace" }}>
-                Bu ay: {decisionCount} / {limit} karar
+                {tCommon("status.usage", { used: decisionCount, limit })}
               </span>
               {usagePct > 80 && (
                 <span style={{ fontSize: 11, color: "#EF4444" }}>
-                  %{Math.round(usagePct)} dolu
+                  {t("usage_full", { pct: Math.round(usagePct) })}
                 </span>
               )}
             </div>
@@ -142,7 +141,7 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
                 fontFamily: "inherit", letterSpacing: ".04em",
               }}
             >
-              Planı Yükselt →
+              {tCommon("actions.upgrade")}
             </button>
           ) : (
             <>
@@ -154,13 +153,14 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
                   border: `1px solid ${T.border}`,
                   background: "transparent",
                   color: portalLoading ? T.textTertiary : T.textPrimary,
-                  fontSize: 12, fontWeight: 600, cursor: portalLoading ? "not-allowed" : "pointer",
+                  fontSize: 12, fontWeight: 600,
+                  cursor: portalLoading ? "not-allowed" : "pointer",
                   fontFamily: "inherit", letterSpacing: ".04em",
                   opacity: portalLoading ? 0.6 : 1,
                   transition: "opacity .2s",
                 }}
               >
-                {portalLoading ? "Açılıyor…" : "Aboneliği Yönet"}
+                {portalLoading ? t("opening") : t("manage_portal")}
               </button>
               <button
                 onClick={() => navigate("/junior/fiyatlandirma")}
@@ -172,7 +172,7 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
                   fontFamily: "inherit", letterSpacing: ".04em",
                 }}
               >
-                Planları Gör
+                {tPricing("view_plans")}
               </button>
             </>
           )}
@@ -186,20 +186,21 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
       </Section>
 
       {/* ── Dil ── */}
-      <Section title={L.settingsLang}>
+      <Section title={t("sections.language")}>
         <div style={{
           display: "flex", background: T.bgSurface,
           border: `1px solid ${T.border}`, borderRadius: 8,
           padding: 3, gap: 2, width: "fit-content",
         }}>
           {["tr", "en"].map(l => (
-            <button key={l} className={`lt${lang === l ? " active" : ""}`}
-              onClick={() => onLangChange(l)}
+            <button
+              key={l}
+              onClick={() => handleLangChange(l)}
               style={{
                 padding: "7px 20px", borderRadius: 6, border: "none",
                 background: "transparent", cursor: "pointer",
                 fontSize: 12, fontWeight: 600, letterSpacing: ".04em",
-                color: lang === l ? T.accent : T.textTertiary,
+                color: currentLang === l ? T.accent : T.textTertiary,
                 fontFamily: "'JetBrains Mono',monospace",
               }}
             >
@@ -210,9 +211,10 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
       </Section>
 
       {/* ── Risk eşiği ── */}
-      <Section title={L.settingsRisk}>
+      <Section title={t("sections.risk")}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
-          <input type="range" min={1} max={10} value={threshold}
+          <input
+            type="range" min={1} max={10} value={threshold}
             onChange={e => setThreshold(Number(e.target.value))}
             style={{ flex: 1, accentColor: T.accent, cursor: "pointer" }}
           />
@@ -224,14 +226,14 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
           </span>
         </div>
         <p style={{ fontSize: 11, color: T.textTertiary, lineHeight: 1.6, margin: 0 }}>
-          {L.settingsRiskNote}
+          {t("risk_note")}
         </p>
       </Section>
 
       {/* ── Veri temizle ── */}
-      <Section title={L.settingsClear}>
+      <Section title={t("sections.clear")}>
         <p style={{ fontSize: 11, color: T.textTertiary, lineHeight: 1.6, marginBottom: 12 }}>
-          {L.settingsClearNote}
+          {t("clear_note")}
         </p>
         <button onClick={handleClear} style={{
           padding: "8px 18px", borderRadius: 8,
@@ -241,7 +243,7 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
           fontSize: 12, fontWeight: 600, cursor: "pointer",
           fontFamily: "inherit", transition: "all .2s",
         }}>
-          {cleared ? "✓ Temizlendi" : `⚠ ${L.settingsClearBtn}`}
+          {cleared ? t("cleared") : `⚠ ${t("clear_btn")}`}
         </button>
       </Section>
 
@@ -251,7 +253,7 @@ export function SettingsScreen({ lang, onLangChange, onClear }) {
         fontFamily: "'JetBrains Mono',monospace",
         paddingTop: 16, borderTop: `1px solid ${T.borderSubtle}`,
       }}>
-        {L.settingsVersion} · sovereign.os v0.1.0-alpha
+        {t("version_label")} · sovereign.os v0.1.0-alpha
       </div>
 
     </div>
