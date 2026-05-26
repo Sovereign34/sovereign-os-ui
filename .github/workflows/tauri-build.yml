@@ -10,7 +10,26 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create-release.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        id: create-release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Sovereign OS ${{ github.ref_name }}
+          body: |
+            Sovereign Engine OS desktop release.
+            Windows (.msi) ve macOS (.dmg) installer aşağıdadır.
+          draft: false
+          prerelease: false
+
   build-tauri:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -55,11 +74,5 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Sovereign OS ${{ github.ref_name }}
-          releaseBody: |
-            Sovereign Engine OS desktop release.
-            Windows (.msi) ve macOS (.dmg) installer aşağıdadır.
-          releaseDraft: false
-          prerelease: false
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target ${{ matrix.target }}
