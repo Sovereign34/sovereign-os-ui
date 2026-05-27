@@ -22,6 +22,7 @@ install:
   - set PATH=%USERPROFILE%\.cargo\bin;%PATH%
   - cargo --version
   - npm ci
+  - cargo install tauri-cli
 
 build_script:
   - npm run build
