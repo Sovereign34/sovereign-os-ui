@@ -1,17 +1,37 @@
 {
-  "placeholder":    "指示を入力してください...",
-  "send":           "送信",
-  "thinking":       "考え中...",
-  "risk_label":     "リスク",
-  "decision_saved": "判断を保存しました",
-  "error_generic":  "エラーが発生しました。再試行してください。",
   "login": {
-    "title":             "サインインが必要です",
-    "email_placeholder": "メールアドレス",
-    "send_link":         "マジックリンクを送信",
-    "sending":           "送信中...",
+    "check_email":       "メールを確認してください",
     "magic_sent_before": "",
-    "magic_sent_email":  "{{email}}",
-    "magic_sent_after":  " にリンクを送信しました。メールを確認してください。"
-  }
+    "magic_sent_after":  " にログインリンクを送信しました。\nリンクをクリックして自動的にサインインします。",
+    "link_note":         "リンク有効期限60分 · 迷惑メールフォルダも確認",
+    "use_different":     "← 別のメールを使用",
+    "title":             "Sovereign Engine",
+    "subtitle":          "マジックリンクをメールに送信します —\nパスワード不要。",
+    "email_placeholder": "メールアドレス",
+    "send_btn":          "マジックリンクを送信 →",
+    "sending":           "送信中...",
+    "error_fallback":    "送信できませんでした"
+  },
+  "system": {
+    "active": "Sovereign Engine 稼働中 · すべてのメッセージをリスク評価"
+  },
+  "header": {
+    "engine_active": "エンジン稼働中"
+  },
+  "risk": {
+    "intercepted": "エンジンが検知"
+  },
+  "decision": {
+    "badge": "決定"
+  },
+  "input": {
+    "placeholder":       "メッセージを入力... (Enter → チャット、Shift+Enter → 改行)",
+    "decision_tooltip":  "決定としてマークしてログに記録"
+  },
+  "footer": {
+    "note":          "すべてのメッセージはSovereign Engineを経由 · リスク評価済み",
+    "chat_note":     "チャット",
+    "decision_note": "決定としてログ"
+  },
+  "error_prefix": "エラー: "
 }
