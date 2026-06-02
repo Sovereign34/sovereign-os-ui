@@ -1,7 +1,9 @@
 // src/junior/screens/Chat.jsx
 // Phase B.2 — aiProxy refactor
 // Phase B.3 — Gerçek risk skoru entegrasyonu
-// i18n — Faz 3 güncelleme
+// i18n   — Faz 3 güncelleme
+// Karar #45 — system prompt engine'e taşındı, client'tan kaldırıldı
+// Karar #45 — Sohbet / Karar ayrımı: 📋 butonu karar loglar, ↑ sadece sohbet
 
 import { apiCall }  from "../../lib/apiClient";
 import { useState, useRef, useEffect } from "react";
@@ -206,6 +208,18 @@ function MessageBubble({ msg }) {
         borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
         padding: "10px 14px",
       }}>
+        {/* Karar rozeti — sadece karar olarak işaretlenen kullanıcı mesajlarında */}
+        {isUser && msg.isDecision && (
+          <div style={{
+            fontSize: 9, fontFamily: "'JetBrains Mono',monospace",
+            color: T.accent, background: `${T.accent}20`,
+            padding: "2px 7px", borderRadius: 5,
+            display: "inline-block", marginBottom: 6,
+            border: `1px solid ${T.accent}40`,
+          }}>
+            📋 {t("decision.badge")}
+          </div>
+        )}
         <div style={{ fontSize: 14, color: T.textPrimary, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
           {msg.content}
         </div>
@@ -258,7 +272,7 @@ function TypingIndicator() {
 
 // -- ANA CHAT EKRANI ---------------------------------------------
 export default function ChatScreen() {
-  const { t }  = useTranslation("chat");
+  const { t }      = useTranslation("chat");
   const { t: tCommon } = useTranslation("common");
 
   const { user, loading: authLoading } = useAuth();
@@ -296,6 +310,7 @@ export default function ChatScreen() {
 
   if (!user) return <LoginGate onLogin={() => {}} />;
 
+  // logToEngine — SADECE isDecision=true olduğunda çağrılır (Sohbet/Karar ayrımı)
   const logToEngine = async (userMsg, assistantMsg, riskScore, verdict, policy) => {
     try {
       await apiCall("/api/decisions", {
@@ -312,12 +327,14 @@ export default function ChatScreen() {
     } catch { /* engine offline — continue */ }
   };
 
-  const sendMessage = async () => {
+  // isDecision=false → sohbet (log yok)
+  // isDecision=true  → karar (logToEngine çağrılır, engineLog gösterilir)
+  const sendMessage = async (isDecision = false) => {
     const text = input.trim();
     if (!text || loading) return;
 
     const history = messages.filter(m => m.role !== "system");
-    setMessages(prev => [...prev, { role: "user", content: text }]);
+    setMessages(prev => [...prev, { role: "user", content: text, isDecision }]);
     setInput("");
     setLoading(true);
     setEngineLog(null);
@@ -326,7 +343,7 @@ export default function ChatScreen() {
       const data = await apiCall("/api/ai/chat", {
         method: "POST",
         body: JSON.stringify({
-          system: "You are an AI assistant connected to the Sovereign Engine. Give short and clear answers. Every action is subject to risk assessment.",
+          // "system" alanı kasıtlı olarak GÖNDERİLMİYOR — engine'de sabit tanımlı (Karar #45)
           messages: [
             ...history.map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: text },
@@ -339,8 +356,12 @@ export default function ChatScreen() {
       const risk  = data.risk ?? 1;
 
       setMessages(prev => [...prev, { role: "assistant", content: reply, risk }]);
-      logToEngine(text, reply, risk, data.verdict, data.policy);
-      setEngineLog({ risk, status: data.verdict, policy: data.policy });
+
+      // Karar modunda logla ve engineLog göster
+      if (isDecision) {
+        logToEngine(text, reply, risk, data.verdict, data.policy);
+        setEngineLog({ risk, status: data.verdict, policy: data.policy });
+      }
 
     } catch (err) {
       setMessages(prev => [...prev, { role: "assistant", content: `${t("error_prefix")}${err.message}` }]);
@@ -349,8 +370,9 @@ export default function ChatScreen() {
     }
   };
 
+  // Enter → sohbet (isDecision=false)
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(false); }
   };
 
   return (
@@ -414,8 +436,27 @@ export default function ChatScreen() {
               caretColor: T.accent, maxHeight: 120, overflowY: "auto",
             }}
           />
+
+          {/* 📋 Karar butonu — logToEngine tetikler */}
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage(true)}
+            disabled={!input.trim() || loading}
+            title={t("input.decision_tooltip")}
+            style={{
+              height: 36, padding: "0 10px", borderRadius: 9,
+              border: `1px solid ${input.trim() && !loading ? T.accent : T.border}`,
+              background: "transparent",
+              color: input.trim() && !loading ? T.accent : T.textTertiary,
+              cursor: input.trim() && !loading ? "pointer" : "not-allowed",
+              fontSize: 14, flexShrink: 0, transition: "all .15s",
+            }}
+          >
+            📋
+          </button>
+
+          {/* ↑ Sohbet butonu — log yok */}
+          <button
+            onClick={() => sendMessage(false)}
             disabled={!input.trim() || loading}
             style={{
               width: 36, height: 36, borderRadius: 9, border: "none",
@@ -427,8 +468,9 @@ export default function ChatScreen() {
             }}
           >↑</button>
         </div>
+
         <div style={{ marginTop: 6, fontSize: 10, color: T.textTertiary, fontFamily: "'JetBrains Mono',monospace", textAlign: "center" }}>
-          {t("footer.note")}
+          ↑ {t("footer.chat_note")} · 📋 {t("footer.decision_note")}
         </div>
       </div>
     </div>
