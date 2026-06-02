@@ -1,17 +1,37 @@
 {
-  "placeholder":    "Anweisung eingeben...",
-  "send":           "Senden",
-  "thinking":       "Denke nach...",
-  "risk_label":     "Risiko",
-  "decision_saved": "Entscheidung gespeichert",
-  "error_generic":  "Fehler aufgetreten. Bitte erneut versuchen.",
   "login": {
-    "title":             "Anmeldung erforderlich",
-    "email_placeholder": "E-Mail-Adresse",
-    "send_link":         "Magic Link senden",
-    "sending":           "Wird gesendet...",
+    "check_email":       "E-Mail prüfen",
     "magic_sent_before": "Link wurde an ",
-    "magic_sent_email":  "{{email}}",
-    "magic_sent_after":  " gesendet. Bitte E-Mail prüfen."
-  }
+    "magic_sent_after":  " gesendet.\nKlicke den Link zum automatischen Anmelden.",
+    "link_note":         "Link 60 Min. gültig · Spam-Ordner prüfen",
+    "use_different":     "← Andere E-Mail verwenden",
+    "title":             "Sovereign Engine",
+    "subtitle":          "Wir senden einen Magic Link —\nkein Passwort nötig.",
+    "email_placeholder": "E-Mail-Adresse",
+    "send_btn":          "Magic Link senden →",
+    "sending":           "Wird gesendet...",
+    "error_fallback":    "Konnte nicht senden"
+  },
+  "system": {
+    "active": "Sovereign Engine aktiv · Jede Nachricht wird bewertet"
+  },
+  "header": {
+    "engine_active": "ENGINE AKTIV"
+  },
+  "risk": {
+    "intercepted": "engine abgefangen"
+  },
+  "decision": {
+    "badge": "ENTSCHEIDUNG"
+  },
+  "input": {
+    "placeholder":       "Nachricht eingeben... (Enter → Chat, Shift+Enter → neue Zeile)",
+    "decision_tooltip":  "Als Entscheidung markieren und protokollieren"
+  },
+  "footer": {
+    "note":          "Jede Nachricht läuft durch Sovereign Engine · Risiko bewertet",
+    "chat_note":     "Chat",
+    "decision_note": "Als Entscheidung protokollieren"
+  },
+  "error_prefix": "Fehler: "
 }
