@@ -359,8 +359,32 @@ export default function ChatScreen() {
 
       // Karar modunda logla ve engineLog göster
       if (isDecision) {
-        logToEngine(text, reply, risk, data.verdict, data.policy);
-        setEngineLog({ risk, status: data.verdict, policy: data.policy });
+        try {
+          const applyData = await apiCall("/api/ai/apply", {
+            method: "POST",
+            body: JSON.stringify({
+              decision: {
+                category: data.category ?? "GENERAL",
+                payload: {
+                  action_name: text.slice(0, 80),
+                  params: { message: text },
+                },
+                context: {
+                  risk_level: risk <= 3 ? "LOW" : risk <= 7 ? "MEDIUM" : "HIGH",
+                  session_id: user.id,
+                },
+              },
+            }),
+          });
+          if (applyData.matched) {
+            setEngineLog({ risk, status: applyData.success ? "PERMIT" : "DENY", policy: data.policy, adapter: applyData.adapter });
+          } else {
+            setEngineLog(null);
+          }
+        } catch {
+          logToEngine(text, reply, risk, data.verdict, data.policy);
+          setEngineLog({ risk, status: data.verdict, policy: data.policy });
+        }
       }
 
     } catch (err) {
