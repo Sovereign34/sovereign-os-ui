@@ -2,6 +2,7 @@
 // Phase C — /junior rotalarına auth guard eklendi
 // Phase C — /giris + /kayit rotaları eklendi, AuthGuard redirect güncellendi
 // Phase D — fiyatlandirma + odeme-basarili + ayarlar rotaları eklendi
+// Session 12 — /onboarding (AuthGuard) + /sifre-sifirla rotaları eklendi
 
 import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
@@ -13,6 +14,8 @@ import { SettingsScreen }   from "./screens/SettingsScreen";
 import PaymentSuccessScreen from "./screens/PaymentSuccessScreen";
 import LoginScreen          from "./screens/Login";
 import RegisterScreen       from "./screens/Register";
+import OnboardingScreen     from "./screens/OnboardingScreen";
+import ResetPasswordScreen  from "./screens/ResetPasswordScreen";
 import JuniorLayout         from "./junior/components/JuniorLayout";
 import KararGecmisi         from "./junior/screens/KararGecmisi";
 import ProjHafizasi         from "./junior/screens/ProjHafizasi";
@@ -23,7 +26,7 @@ import { FeatureGate }      from "./components/FeatureGate";
 
 const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD ?? "sovereign";
 
-// -- ADMIN GATE (değişmedi) ----------------------------------------
+// -- ADMIN GATE ----------------------------------------
 function AdminGate({ children }) {
   const [input, setInput] = useState("");
   const [ok,    setOk]    = useState(false);
@@ -70,14 +73,12 @@ function AdminGate({ children }) {
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 18, color: "#fff", fontWeight: 800,
         }}>S</div>
-
         <div style={{ fontSize: 16, fontWeight: 700, color: "#EDEDEC", marginBottom: 6 }}>
           Admin Girişi
         </div>
         <div style={{ fontSize: 12, color: "#555550", marginBottom: 24, fontFamily: "'JetBrains Mono',monospace" }}>
           sovereign-engine · waitlist
         </div>
-
         <input
           type="password"
           placeholder="Şifre"
@@ -93,7 +94,6 @@ function AdminGate({ children }) {
             marginBottom: 12, caretColor: "#7C3AED",
           }}
         />
-
         <button
           onClick={check}
           disabled={!input}
@@ -114,7 +114,7 @@ function AdminGate({ children }) {
   );
 }
 
-// -- AUTH GUARD — /junior rotaları için -------------------------
+// -- AUTH GUARD -------------------------
 function AuthGuard({ children }) {
   const { user, loading } = useAuth();
 
@@ -141,6 +141,10 @@ export default function AppRouter() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/giris" element={<LoginScreen />} />
       <Route path="/kayit" element={<RegisterScreen />} />
+      <Route path="/sifre-sifirla" element={<ResetPasswordScreen />} />
+      <Route path="/onboarding" element={
+        <AuthGuard><OnboardingScreen /></AuthGuard>
+      } />
       <Route path="/legal/:type" element={<LegalScreen />} />
 
       <Route
