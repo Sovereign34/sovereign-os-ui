@@ -6,7 +6,7 @@
 //               SIGNED_IN event'inde magic link session kaydı tetiklenir
 
 import { create } from "zustand";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 interface UserProfile {
   tier: "free" | "solo" | "pro" | "team";
