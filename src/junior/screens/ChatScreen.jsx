@@ -6,12 +6,14 @@
 // Karar #45 — Sohbet / Karar ayrımı: 📋 butonu karar loglar, ↑ sadece sohbet
 // Session 14 — #6: ASK_HUMAN / DENY / PERMIT verdict UI entegrasyonu
 // Session 20 — Session Kapat butonu (sadece Tauri/desktop)
+// Session 21 — #89 #90: SessionSummaryModal — Claude özet üretir, kullanıcı onaylar, sonra kaydedilir
 
 import { apiCall }  from "../../lib/apiClient";
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { T } from "../../tokens";
 import { useAuth } from "../hooks/useAuth";
+import { useSovereignMemory } from "../hooks/useSovereignMemory";
 
 // Tauri ortamı tespiti
 const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -218,7 +220,7 @@ function VerdictBanner({ verdict, softSteer }) {
   );
 }
 
-// -- SESSION KAPAT MODAL -----------------------------------------
+// -- SESSION KAPAT MODAL — İlk onay adımı ----------------------
 function SessionCloseModal({ onConfirm, onCancel, isClosing }) {
   return (
     <div style={{
@@ -245,7 +247,8 @@ function SessionCloseModal({ onConfirm, onCancel, isClosing }) {
           marginBottom: 24,
         }}>
           Session kapanış protokolü çalışacak.<br />
-          session_index.md güncellenecek ve hot.json'a yazılacak.<br />
+          Sovereign AI bu session'ın özetini üretecek.<br />
+          Sen okuyup onayladıktan sonra kaydedilecek.<br />
           Devam etmek istiyor musun?
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -290,11 +293,124 @@ function SessionCloseModal({ onConfirm, onCancel, isClosing }) {
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
                 }} />
-                Kapatılıyor...
+                Özet üretiliyor...
               </>
-            ) : "Evet, Kapat"}
+            ) : "Evet, Devam Et"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// -- SESSION ÖZET MODAL — İnsan onayı merkezi (Karar #90) ------
+// Amaç:    Claude'un ürettiği özeti kullanıcıya gösterir
+//          Kullanıcı okur, düzenler, onaylarsa kaydedilir
+// Edge:    Özet boşsa textarea açık gelir — kullanıcı elle yazar
+//          "Kaydetme" basarsa session kapanmış ama özet kaydedilmez — uyarı chat'e düşer
+
+function SessionSummaryModal({ summary, error, onConfirm, onCancel, isSaving, onChange }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(0,0,0,0.7)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: "24px",
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 540,
+        background: T.bgSurface,
+        border: `1px solid ${T.border}`,
+        borderRadius: 16, padding: "28px 24px",
+        display: "flex", flexDirection: "column", gap: 16,
+        maxHeight: "82vh", overflow: "hidden",
+      }}>
+
+        {/* Başlık */}
+        <div style={{
+          fontSize: 13, fontWeight: 700, color: T.textPrimary,
+          fontFamily: "'JetBrains Mono',monospace", flexShrink: 0,
+        }}>
+          Session Özeti — Onayla ve Kaydet
+        </div>
+
+        {/* Açıklama */}
+        <div style={{
+          fontSize: 11, color: error ? T.warning : T.textSecondary,
+          fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.7,
+          flexShrink: 0,
+        }}>
+          {error
+            ? "⚠️ Özet otomatik üretilemedi. Aşağıya kendin yazabilirsin."
+            : "Sovereign AI bu session'ın özetini üretti. Oku, gerekirse düzenle, sonra kaydet."}
+        </div>
+
+        {/* Özet textarea */}
+        <textarea
+          value={summary}
+          onChange={e => onChange(e.target.value)}
+          rows={14}
+          style={{
+            width: "100%", background: T.bgPrimary,
+            border: `1px solid ${T.border}`, borderRadius: 9,
+            padding: "12px 14px", color: T.textPrimary, fontSize: 12,
+            fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.7,
+            outline: "none", resize: "vertical", flexShrink: 0,
+            caretColor: T.accent, boxSizing: "border-box",
+            transition: "border-color .15s",
+          }}
+          onFocus={e => { e.target.style.borderColor = T.accent; }}
+          onBlur={e => { e.target.style.borderColor = T.border; }}
+        />
+
+        {/* Butonlar */}
+        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+          <button
+            onClick={onCancel}
+            disabled={isSaving}
+            style={{
+              flex: 1, padding: "10px", borderRadius: 9,
+              border: `1px solid ${T.border}`,
+              background: "transparent", color: T.textSecondary,
+              fontSize: 12, fontWeight: 600,
+              cursor: isSaving ? "not-allowed" : "pointer",
+              fontFamily: "'JetBrains Mono',monospace",
+              transition: "all .15s",
+            }}
+          >
+            Kaydetme
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isSaving || !summary.trim()}
+            style={{
+              flex: 2, padding: "10px", borderRadius: 9,
+              border: "none",
+              background: (isSaving || !summary.trim()) ? T.bgElevated : T.accent,
+              color: (isSaving || !summary.trim()) ? T.textTertiary : "#fff",
+              fontSize: 12, fontWeight: 700,
+              cursor: (isSaving || !summary.trim()) ? "not-allowed" : "pointer",
+              fontFamily: "'JetBrains Mono',monospace",
+              display: "flex", alignItems: "center",
+              justifyContent: "center", gap: 6,
+              transition: "all .15s",
+            }}
+          >
+            {isSaving ? (
+              <>
+                <div style={{
+                  width: 10, height: 10,
+                  border: `2px solid ${T.border}`,
+                  borderTopColor: T.accent,
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }} />
+                Kaydediliyor...
+              </>
+            ) : "✅ Onayla ve Kaydet"}
+          </button>
+        </div>
+
       </div>
     </div>
   );
@@ -411,18 +527,27 @@ const verdictColor = (verdict, risk) => {
 
 // -- ANA CHAT EKRANI ---------------------------------------------
 export default function ChatScreen() {
-  const { t }      = useTranslation("chat");
+  const { t }          = useTranslation("chat");
   const { t: tCommon } = useTranslation("common");
 
   const { user, loading: authLoading } = useAuth();
-  const [messages,      setMessages]      = useState([
+
+  // TODO: PROD — project_id gerçek değeri props/context'ten gelmeli
+  const { addSession, triggerSync } = useSovereignMemory(null);
+
+  const [messages,         setMessages]         = useState([
     { role: "system", content: t("system.active") },
   ]);
-  const [input,         setInput]         = useState("");
-  const [loading,       setLoading]       = useState(false);
-  const [engineLog,     setEngineLog]     = useState(null);
-  const [showCloseModal, setShowCloseModal] = useState(false);
-  const [isClosing,     setIsClosing]     = useState(false);
+  const [input,            setInput]            = useState("");
+  const [loading,          setLoading]          = useState(false);
+  const [engineLog,        setEngineLog]        = useState(null);
+  const [showCloseModal,   setShowCloseModal]   = useState(false);
+  const [isClosing,        setIsClosing]        = useState(false);
+  const [sessionSummary,   setSessionSummary]   = useState("");
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryError,     setSummaryError]     = useState(null);
+  const [isSavingSummary,  setIsSavingSummary]  = useState(false);
+
   const bottomRef   = useRef(null);
   const textareaRef = useRef(null);
 
@@ -547,27 +672,72 @@ export default function ChatScreen() {
     }
   };
 
-  // Session kapanış protokolü
+  // ── Adım 1: Modal onayı → backend çağrısı → özet modal'a geç ─
   const handleSessionClose = async () => {
     setIsClosing(true);
     try {
-      await apiCall("/api/ai/session/close", {
+      const history = messages.filter(m => m.role !== "system");
+
+      const data = await apiCall("/api/ai/session/close", {
         method: "POST",
-        body: JSON.stringify({ reason: "normal" }),
+        body: JSON.stringify({
+          project_id: user.id,   // TODO: PROD — gerçek project_id props/context'ten gelmeli
+          messages:   history.map(m => ({ role: m.role, content: m.content })),
+        }),
       });
-      setMessages(prev => [
-        ...prev,
-        { role: "system", content: "Session kapatıldı. Kapanış protokolü tamamlandı." },
-      ]);
+
+      setSessionSummary(data.summary_content ?? "");
+      setSummaryError(data.summary_error ?? null);
+      setShowCloseModal(false);
+      setShowSummaryModal(true);
+
     } catch (err) {
       setMessages(prev => [
         ...prev,
         { role: "system", content: `Session kapatma hatası: ${err.message}` },
       ]);
+      setShowCloseModal(false);
     } finally {
       setIsClosing(false);
-      setShowCloseModal(false);
     }
+  };
+
+  // ── Adım 2: Kullanıcı özeti onaylar → kaydet ──────────────────
+  const handleSummaryConfirm = async () => {
+    setIsSavingSummary(true);
+    try {
+      await addSession({
+        content:    sessionSummary,
+        project_id: user.id,   // TODO: PROD — gerçek project_id props/context'ten gelmeli
+      });
+      await triggerSync();
+
+      setShowSummaryModal(false);
+      setSessionSummary("");
+      setSummaryError(null);
+      setMessages(prev => [
+        ...prev,
+        { role: "system", content: "✅ Session kapatıldı. Özet kaydedildi." },
+      ]);
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: "system", content: `Kayıt hatası: ${err.message}` },
+      ]);
+    } finally {
+      setIsSavingSummary(false);
+    }
+  };
+
+  // ── Özet modalı iptal → session kapanmış ama özet yok ─────────
+  const handleSummaryCancel = () => {
+    setShowSummaryModal(false);
+    setSessionSummary("");
+    setSummaryError(null);
+    setMessages(prev => [
+      ...prev,
+      { role: "system", content: "⚠️ Session kapatıldı ama özet kaydedilmedi." },
+    ]);
   };
 
   const handleKeyDown = (e) => {
@@ -577,12 +747,24 @@ export default function ChatScreen() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
 
-      {/* Session Kapat Modal */}
+      {/* Session Kapat Modal — ilk onay adımı */}
       {showCloseModal && (
         <SessionCloseModal
           onConfirm={handleSessionClose}
           onCancel={() => setShowCloseModal(false)}
           isClosing={isClosing}
+        />
+      )}
+
+      {/* Session Özet Modal — insan onayı merkezi (Karar #90) */}
+      {showSummaryModal && (
+        <SessionSummaryModal
+          summary={sessionSummary}
+          error={summaryError}
+          onConfirm={handleSummaryConfirm}
+          onCancel={handleSummaryCancel}
+          isSaving={isSavingSummary}
+          onChange={setSessionSummary}
         />
       )}
 
