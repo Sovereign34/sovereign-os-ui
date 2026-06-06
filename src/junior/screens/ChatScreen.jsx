@@ -5,12 +5,16 @@
 // Karar #45 — system prompt engine'e taşındı, client'tan kaldırıldı
 // Karar #45 — Sohbet / Karar ayrımı: 📋 butonu karar loglar, ↑ sadece sohbet
 // Session 14 — #6: ASK_HUMAN / DENY / PERMIT verdict UI entegrasyonu
+// Session 20 — Session Kapat butonu (sadece Tauri/desktop)
 
 import { apiCall }  from "../../lib/apiClient";
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { T } from "../../tokens";
 import { useAuth } from "../hooks/useAuth";
+
+// Tauri ortamı tespiti
+const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // -- LOGIN EKRANI ------------------------------------------------
 function LoginGate({ onLogin }) {
@@ -173,8 +177,6 @@ function LoginGate({ onLogin }) {
 }
 
 // -- VERDİCT BANNER ----------------------------------------------
-// ASK_HUMAN ve DENY durumlarında AI mesajının altında render edilir.
-// PERMIT'te gösterilmez (sessiz onay).
 function VerdictBanner({ verdict, softSteer }) {
   if (!verdict || verdict === "PERMIT") return null;
 
@@ -211,6 +213,88 @@ function VerdictBanner({ verdict, softSteer }) {
         fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.6,
       }}>
         {sublabel}
+      </div>
+    </div>
+  );
+}
+
+// -- SESSION KAPAT MODAL -----------------------------------------
+function SessionCloseModal({ onConfirm, onCancel, isClosing }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: "24px",
+    }}>
+      <div style={{
+        width: "100%", maxWidth: 380,
+        background: T.bgSurface,
+        border: `1px solid ${T.border}`,
+        borderRadius: 16, padding: "28px 24px",
+      }}>
+        <div style={{
+          fontSize: 13, fontWeight: 700, color: T.textPrimary,
+          marginBottom: 8, fontFamily: "'JetBrains Mono',monospace",
+        }}>
+          Session'ı Kapat
+        </div>
+        <div style={{
+          fontSize: 12, color: T.textSecondary,
+          fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.7,
+          marginBottom: 24,
+        }}>
+          Session kapanış protokolü çalışacak.<br />
+          session_index.md güncellenecek ve hot.json'a yazılacak.<br />
+          Devam etmek istiyor musun?
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            disabled={isClosing}
+            style={{
+              flex: 1, padding: "10px", borderRadius: 9,
+              border: `1px solid ${T.border}`,
+              background: "transparent",
+              color: T.textSecondary,
+              fontSize: 12, fontWeight: 600,
+              cursor: isClosing ? "not-allowed" : "pointer",
+              fontFamily: "'JetBrains Mono',monospace",
+              transition: "all .15s",
+            }}
+          >
+            İptal
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isClosing}
+            style={{
+              flex: 1, padding: "10px", borderRadius: 9,
+              border: "none",
+              background: isClosing ? T.bgElevated : T.accent,
+              color: isClosing ? T.textTertiary : "#fff",
+              fontSize: 12, fontWeight: 700,
+              cursor: isClosing ? "not-allowed" : "pointer",
+              fontFamily: "'JetBrains Mono',monospace",
+              transition: "all .15s",
+              display: "flex", alignItems: "center",
+              justifyContent: "center", gap: 6,
+            }}
+          >
+            {isClosing ? (
+              <>
+                <div style={{
+                  width: 10, height: 10,
+                  border: `2px solid ${T.border}`,
+                  borderTopColor: T.accent,
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }} />
+                Kapatılıyor...
+              </>
+            ) : "Evet, Kapat"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -253,7 +337,6 @@ function MessageBubble({ msg }) {
         borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
         padding: "10px 14px",
       }}>
-        {/* Karar rozeti — sadece karar olarak işaretlenen kullanıcı mesajlarında */}
         {isUser && msg.isDecision && (
           <div style={{
             fontSize: 9, fontFamily: "'JetBrains Mono',monospace",
@@ -283,8 +366,6 @@ function MessageBubble({ msg }) {
             </span>
           </div>
         )}
-
-        {/* #6 — Verdict banner: ASK_HUMAN / DENY durumlarında göster */}
         {!isUser && msg.verdict && (
           <VerdictBanner verdict={msg.verdict} softSteer={msg.softSteer} />
         )}
@@ -325,7 +406,6 @@ const verdictColor = (verdict, risk) => {
   if (verdict === "DENY")      return T.danger;
   if (verdict === "ASK_HUMAN") return T.warning;
   if (verdict === "PERMIT")    return T.success;
-  // verdict yoksa risk skoru üzerinden fallback
   return risk <= 3 ? T.success : risk <= 7 ? T.warning : T.danger;
 };
 
@@ -335,12 +415,14 @@ export default function ChatScreen() {
   const { t: tCommon } = useTranslation("common");
 
   const { user, loading: authLoading } = useAuth();
-  const [messages,  setMessages]  = useState([
+  const [messages,      setMessages]      = useState([
     { role: "system", content: t("system.active") },
   ]);
-  const [input,     setInput]     = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [engineLog, setEngineLog] = useState(null);
+  const [input,         setInput]         = useState("");
+  const [loading,       setLoading]       = useState(false);
+  const [engineLog,     setEngineLog]     = useState(null);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [isClosing,     setIsClosing]     = useState(false);
   const bottomRef   = useRef(null);
   const textareaRef = useRef(null);
 
@@ -369,7 +451,6 @@ export default function ChatScreen() {
 
   if (!user) return <LoginGate onLogin={() => {}} />;
 
-  // logToEngine — SADECE isDecision=true olduğunda çağrılır (Sohbet/Karar ayrımı)
   const logToEngine = async (userMsg, assistantMsg, riskScore, verdict, policy) => {
     try {
       await apiCall("/api/decisions", {
@@ -386,8 +467,6 @@ export default function ChatScreen() {
     } catch { /* engine offline — continue */ }
   };
 
-  // isDecision=false → sohbet (log yok)
-  // isDecision=true  → karar (logToEngine çağrılır, engineLog gösterilir)
   const sendMessage = async (isDecision = false) => {
     const text = input.trim();
     if (!text || loading) return;
@@ -402,7 +481,6 @@ export default function ChatScreen() {
       const data = await apiCall("/api/ai/chat", {
         method: "POST",
         body: JSON.stringify({
-          // "system" alanı kasıtlı olarak GÖNDERİLMİYOR — engine'de sabit tanımlı (Karar #45)
           messages: [
             ...history.map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: text },
@@ -414,13 +492,11 @@ export default function ChatScreen() {
       const reply  = data.reply   ?? "";
       const risk   = data.risk    ?? 1;
 
-      // Sohbet modunda verdict yok — sadece mesajı ekle
       if (!isDecision) {
         setMessages(prev => [...prev, { role: "assistant", content: reply, risk }]);
         return;
       }
 
-      // Karar modunda: önce /api/ai/apply çağır, verdict'i al
       let finalVerdict  = data.verdict  ?? null;
       let finalPolicy   = data.policy   ?? "chat-interface";
       let softSteer     = data.soft_steer ?? null;
@@ -444,39 +520,24 @@ export default function ChatScreen() {
         });
 
         if (applyData.matched) {
-          // Adapter eşleşti — applyData'dan verdict al
           finalVerdict = applyData.verdict ?? (applyData.success ? "PERMIT" : "DENY");
           finalPolicy  = applyData.policy  ?? finalPolicy;
           softSteer    = applyData.soft_steer ?? softSteer;
-
-          setEngineLog({
-            risk,
-            status:  finalVerdict,
-            policy:  finalPolicy,
-          });
+          setEngineLog({ risk, status: finalVerdict, policy: finalPolicy });
         } else {
-          // Adapter eşleşmedi — sohbet muamelesi, verdict gösterme
           finalVerdict = null;
           setEngineLog(null);
         }
       } catch {
-        // /apply erişilemedi — chat cevabındaki verdict ile devam et
         await logToEngine(text, reply, risk, finalVerdict, finalPolicy);
         if (finalVerdict) {
           setEngineLog({ risk, status: finalVerdict, policy: finalPolicy });
         }
       }
 
-      // AI mesajına verdict + softSteer yaz — VerdictBanner buradan beslenecek
       setMessages(prev => [
         ...prev,
-        {
-          role:       "assistant",
-          content:    reply,
-          risk,
-          verdict:    finalVerdict,
-          softSteer,
-        },
+        { role: "assistant", content: reply, risk, verdict: finalVerdict, softSteer },
       ]);
 
     } catch (err) {
@@ -486,13 +547,44 @@ export default function ChatScreen() {
     }
   };
 
-  // Enter → sohbet (isDecision=false)
+  // Session kapanış protokolü
+  const handleSessionClose = async () => {
+    setIsClosing(true);
+    try {
+      await apiCall("/api/ai/session/close", {
+        method: "POST",
+        body: JSON.stringify({ reason: "normal" }),
+      });
+      setMessages(prev => [
+        ...prev,
+        { role: "system", content: "Session kapatıldı. Kapanış protokolü tamamlandı." },
+      ]);
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: "system", content: `Session kapatma hatası: ${err.message}` },
+      ]);
+    } finally {
+      setIsClosing(false);
+      setShowCloseModal(false);
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(false); }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+
+      {/* Session Kapat Modal */}
+      {showCloseModal && (
+        <SessionCloseModal
+          onConfirm={handleSessionClose}
+          onCancel={() => setShowCloseModal(false)}
+          isClosing={isClosing}
+        />
+      )}
 
       {/* Üst bar */}
       <div style={{
@@ -505,9 +597,40 @@ export default function ChatScreen() {
           <span style={{ fontSize: 11, color: T.success, fontFamily: "'JetBrains Mono',monospace", fontWeight: 600 }}>
             {t("header.engine_active")}
           </span>
+
+          {/* Session Kapat — sadece Tauri/desktop */}
+          {IS_TAURI && (
+            <button
+              onClick={() => setShowCloseModal(true)}
+              title="Session'ı Kapat"
+              style={{
+                marginLeft: 8,
+                padding: "3px 10px",
+                borderRadius: 6,
+                border: `1px solid ${T.border}`,
+                background: "transparent",
+                color: T.textTertiary,
+                fontSize: 9,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'JetBrains Mono',monospace",
+                letterSpacing: "0.04em",
+                transition: "all .15s",
+              }}
+              onMouseEnter={e => {
+                e.target.style.borderColor = T.warning;
+                e.target.style.color = T.warning;
+              }}
+              onMouseLeave={e => {
+                e.target.style.borderColor = T.border;
+                e.target.style.color = T.textTertiary;
+              }}
+            >
+              SESSION KAPAT
+            </button>
+          )}
         </div>
 
-        {/* #6 — Header badge: verdict label + renk güncellendi */}
         {engineLog && (
           <div style={{
             fontSize: 10, fontFamily: "'JetBrains Mono',monospace",
@@ -555,7 +678,6 @@ export default function ChatScreen() {
             }}
           />
 
-          {/* 📋 Karar butonu — logToEngine tetikler */}
           <button
             onClick={() => sendMessage(true)}
             disabled={!input.trim() || loading}
@@ -572,7 +694,6 @@ export default function ChatScreen() {
             📋
           </button>
 
-          {/* ↑ Sohbet butonu — log yok */}
           <button
             onClick={() => sendMessage(false)}
             disabled={!input.trim() || loading}
