@@ -4,6 +4,7 @@
 // i18n   — Faz 3 güncelleme
 // Karar #45 — system prompt engine'e taşındı, client'tan kaldırıldı
 // Karar #45 — Sohbet / Karar ayrımı: 📋 butonu karar loglar, ↑ sadece sohbet
+// Session 14 — #6: ASK_HUMAN / DENY / PERMIT verdict UI entegrasyonu
 
 import { apiCall }  from "../../lib/apiClient";
 import { useState, useRef, useEffect } from "react";
@@ -171,6 +172,50 @@ function LoginGate({ onLogin }) {
   );
 }
 
+// -- VERDİCT BANNER ----------------------------------------------
+// ASK_HUMAN ve DENY durumlarında AI mesajının altında render edilir.
+// PERMIT'te gösterilmez (sessiz onay).
+function VerdictBanner({ verdict, softSteer }) {
+  if (!verdict || verdict === "PERMIT") return null;
+
+  const isAskHuman = verdict === "ASK_HUMAN";
+  const color      = isAskHuman ? T.warning : T.danger;
+  const icon       = isAskHuman ? "⚠️" : "🚫";
+  const label      = isAskHuman ? "İNSAN ONAYI GEREKİYOR" : "ENGELLENDİ";
+  const sublabel   = isAskHuman
+    ? "Bu karar otomatik işleme alınamaz. Yetkili onayı bekleniyor."
+    : (softSteer ?? "Bu işlem politika kurallarına göre reddedildi.");
+
+  return (
+    <div style={{
+      marginTop: 10,
+      padding: "10px 12px",
+      background: `${color}0f`,
+      border: `1px solid ${color}35`,
+      borderRadius: 9,
+      borderLeft: `3px solid ${color}`,
+    }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6, marginBottom: 4,
+      }}>
+        <span style={{ fontSize: 12 }}>{icon}</span>
+        <span style={{
+          fontSize: 9, fontWeight: 700, color,
+          fontFamily: "'JetBrains Mono',monospace", letterSpacing: "0.06em",
+        }}>
+          {label}
+        </span>
+      </div>
+      <div style={{
+        fontSize: 11, color: T.textSecondary,
+        fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.6,
+      }}>
+        {sublabel}
+      </div>
+    </div>
+  );
+}
+
 // -- MESAJ BALONU ------------------------------------------------
 function MessageBubble({ msg }) {
   const { t }  = useTranslation("chat");
@@ -238,6 +283,11 @@ function MessageBubble({ msg }) {
             </span>
           </div>
         )}
+
+        {/* #6 — Verdict banner: ASK_HUMAN / DENY durumlarında göster */}
+        {!isUser && msg.verdict && (
+          <VerdictBanner verdict={msg.verdict} softSteer={msg.softSteer} />
+        )}
       </div>
     </div>
   );
@@ -269,6 +319,15 @@ function TypingIndicator() {
     </div>
   );
 }
+
+// -- VERDİCT → RENK yardımcısı -----------------------------------
+const verdictColor = (verdict, risk) => {
+  if (verdict === "DENY")      return T.danger;
+  if (verdict === "ASK_HUMAN") return T.warning;
+  if (verdict === "PERMIT")    return T.success;
+  // verdict yoksa risk skoru üzerinden fallback
+  return risk <= 3 ? T.success : risk <= 7 ? T.warning : T.danger;
+};
 
 // -- ANA CHAT EKRANI ---------------------------------------------
 export default function ChatScreen() {
@@ -352,40 +411,73 @@ export default function ChatScreen() {
         }),
       });
 
-      const reply = data.reply ?? "";
-      const risk  = data.risk ?? 1;
+      const reply  = data.reply   ?? "";
+      const risk   = data.risk    ?? 1;
 
-      setMessages(prev => [...prev, { role: "assistant", content: reply, risk }]);
+      // Sohbet modunda verdict yok — sadece mesajı ekle
+      if (!isDecision) {
+        setMessages(prev => [...prev, { role: "assistant", content: reply, risk }]);
+        return;
+      }
 
-      // Karar modunda logla ve engineLog göster
-      if (isDecision) {
-        try {
-          const applyData = await apiCall("/api/ai/apply", {
-            method: "POST",
-            body: JSON.stringify({
-              decision: {
-                category: data.category ?? "GENERAL",
-                payload: {
-                  action_name: text.slice(0, 80),
-                  params: { message: text },
-                },
-                context: {
-                  risk_level: risk <= 3 ? "LOW" : risk <= 7 ? "MEDIUM" : "HIGH",
-                  session_id: user.id,
-                },
+      // Karar modunda: önce /api/ai/apply çağır, verdict'i al
+      let finalVerdict  = data.verdict  ?? null;
+      let finalPolicy   = data.policy   ?? "chat-interface";
+      let softSteer     = data.soft_steer ?? null;
+
+      try {
+        const applyData = await apiCall("/api/ai/apply", {
+          method: "POST",
+          body: JSON.stringify({
+            decision: {
+              category: data.category ?? "GENERAL",
+              payload: {
+                action_name: text.slice(0, 80),
+                params: { message: text },
               },
-            }),
+              context: {
+                risk_level: risk <= 3 ? "LOW" : risk <= 7 ? "MEDIUM" : "HIGH",
+                session_id: user.id,
+              },
+            },
+          }),
+        });
+
+        if (applyData.matched) {
+          // Adapter eşleşti — applyData'dan verdict al
+          finalVerdict = applyData.verdict ?? (applyData.success ? "PERMIT" : "DENY");
+          finalPolicy  = applyData.policy  ?? finalPolicy;
+          softSteer    = applyData.soft_steer ?? softSteer;
+
+          setEngineLog({
+            risk,
+            status:  finalVerdict,
+            policy:  finalPolicy,
           });
-          if (applyData.matched) {
-            setEngineLog({ risk, status: applyData.success ? "PERMIT" : "DENY", policy: data.policy, adapter: applyData.adapter });
-          } else {
-            setEngineLog(null);
-          }
-        } catch {
-          logToEngine(text, reply, risk, data.verdict, data.policy);
-          setEngineLog({ risk, status: data.verdict, policy: data.policy });
+        } else {
+          // Adapter eşleşmedi — sohbet muamelesi, verdict gösterme
+          finalVerdict = null;
+          setEngineLog(null);
+        }
+      } catch {
+        // /apply erişilemedi — chat cevabındaki verdict ile devam et
+        await logToEngine(text, reply, risk, finalVerdict, finalPolicy);
+        if (finalVerdict) {
+          setEngineLog({ risk, status: finalVerdict, policy: finalPolicy });
         }
       }
+
+      // AI mesajına verdict + softSteer yaz — VerdictBanner buradan beslenecek
+      setMessages(prev => [
+        ...prev,
+        {
+          role:       "assistant",
+          content:    reply,
+          risk,
+          verdict:    finalVerdict,
+          softSteer,
+        },
+      ]);
 
     } catch (err) {
       setMessages(prev => [...prev, { role: "assistant", content: `${t("error_prefix")}${err.message}` }]);
@@ -415,15 +507,17 @@ export default function ChatScreen() {
           </span>
         </div>
 
+        {/* #6 — Header badge: verdict label + renk güncellendi */}
         {engineLog && (
           <div style={{
             fontSize: 10, fontFamily: "'JetBrains Mono',monospace",
-            color: engineLog.risk <= 3 ? T.success : engineLog.risk <= 7 ? T.warning : T.danger,
-            background: `${engineLog.risk <= 3 ? T.success : engineLog.risk <= 7 ? T.warning : T.danger}12`,
+            color:       verdictColor(engineLog.status, engineLog.risk),
+            background: `${verdictColor(engineLog.status, engineLog.risk)}12`,
             padding: "3px 9px", borderRadius: 6,
-            border: `1px solid ${engineLog.risk <= 3 ? T.success : engineLog.risk <= 7 ? T.warning : T.danger}30`,
+            border: `1px solid ${verdictColor(engineLog.status, engineLog.risk)}30`,
           }}>
-            {engineLog.status} · RISK {engineLog.risk}/10 · {engineLog.policy}
+            {engineLog.status} · RISK {engineLog.risk}/10
+            {engineLog.policy ? ` · ${engineLog.policy}` : ""}
           </div>
         )}
 
