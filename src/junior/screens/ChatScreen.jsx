@@ -13,10 +13,16 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { T } from "../../tokens";
 import { useAuth } from "../hooks/useAuth";
-import { useSovereignMemory } from "../../memory/useSovereignMemory";
 
 // Tauri ortamı tespiti
 const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+// Web'de memory sistemi yok (Karar #78) — desktop-only stub
+// StorageManager @tauri-apps/plugin-fs kullandığı için web'de import edilemez
+const useSovereignMemory = () => ({
+  addSession:  async () => {},
+  triggerSync: async () => {},
+});
 
 // -- LOGIN EKRANI ------------------------------------------------
 function LoginGate({ onLogin }) {
