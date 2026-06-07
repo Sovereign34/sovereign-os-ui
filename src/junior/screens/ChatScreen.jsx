@@ -1,4 +1,9 @@
-// src/junior/screens/Chat.jsx
+// ChatScreen.jsx
+// Amaç:    Chat UI render'ı — mesaj listesi, input, modal'lar
+// Bağlı:   useChatActions hook, useAuth, useSovereignMemory, /api/ai/session/close
+// Karar:   Karar #45 (system prompt engine'e taşındı), Session 22 (useChatActions refactor)
+// Dokunma: Mesaj state'i veya API rotaları değişirse useChatActions.js güncellenmeli
+
 // Phase B.2 — aiProxy refactor
 // Phase B.3 — Gerçek risk skoru entegrasyonu
 // i18n   — Faz 3 güncelleme
@@ -7,12 +12,14 @@
 // Session 14 — #6: ASK_HUMAN / DENY / PERMIT verdict UI entegrasyonu
 // Session 20 — Session Kapat butonu (sadece Tauri/desktop)
 // Session 21 — #89 #90: SessionSummaryModal — Claude özet üretir, kullanıcı onaylar, sonra kaydedilir
+// Session 22 — useChatActions hook entegrasyonu (sendMessage bölündü)
 
 import { apiCall }  from "../../lib/apiClient";
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { T } from "../../tokens";
 import { useAuth } from "../hooks/useAuth";
+import { useChatActions } from "../hooks/useChatActions";
 
 // Tauri ortamı tespiti
 const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -314,7 +321,6 @@ function SessionCloseModal({ onConfirm, onCancel, isClosing }) {
 //          Kullanıcı okur, düzenler, onaylarsa kaydedilir
 // Edge:    Özet boşsa textarea açık gelir — kullanıcı elle yazar
 //          "Kaydetme" basarsa session kapanmış ama özet kaydedilmez — uyarı chat'e düşer
-
 function SessionSummaryModal({ summary, error, onConfirm, onCancel, isSaving, onChange }) {
   return (
     <div style={{
@@ -332,7 +338,6 @@ function SessionSummaryModal({ summary, error, onConfirm, onCancel, isSaving, on
         maxHeight: "82vh", overflow: "hidden",
       }}>
 
-        {/* Başlık */}
         <div style={{
           fontSize: 13, fontWeight: 700, color: T.textPrimary,
           fontFamily: "'JetBrains Mono',monospace", flexShrink: 0,
@@ -340,7 +345,6 @@ function SessionSummaryModal({ summary, error, onConfirm, onCancel, isSaving, on
           Session Özeti — Onayla ve Kaydet
         </div>
 
-        {/* Açıklama */}
         <div style={{
           fontSize: 11, color: error ? T.warning : T.textSecondary,
           fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.7,
@@ -351,7 +355,6 @@ function SessionSummaryModal({ summary, error, onConfirm, onCancel, isSaving, on
             : "Sovereign AI bu session'ın özetini üretti. Oku, gerekirse düzenle, sonra kaydet."}
         </div>
 
-        {/* Özet textarea */}
         <textarea
           value={summary}
           onChange={e => onChange(e.target.value)}
@@ -369,7 +372,6 @@ function SessionSummaryModal({ summary, error, onConfirm, onCancel, isSaving, on
           onBlur={e => { e.target.style.borderColor = T.border; }}
         />
 
-        {/* Butonlar */}
         <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
           <button
             onClick={onCancel}
@@ -531,6 +533,19 @@ const verdictColor = (verdict, risk) => {
   return risk <= 3 ? T.success : risk <= 7 ? T.warning : T.danger;
 };
 
+// -- SESSION KAPAT — backend çağrısı (adım 1) --------------------
+// Edge: backend timeout → catch, hata chat'e düşer, modal kapanır
+const fetchSessionClose = async ({ userId, messages }) => {
+  const history = messages.filter(m => m.role !== "system");
+  return apiCall("/api/ai/session/close", {
+    method: "POST",
+    body: JSON.stringify({
+      project_id: userId,   // TODO: PROD — gerçek project_id props/context'ten gelmeli
+      messages:   history.map(m => ({ role: m.role, content: m.content })),
+    }),
+  });
+};
+
 // -- ANA CHAT EKRANI ---------------------------------------------
 export default function ChatScreen() {
   const { t }          = useTranslation("chat");
@@ -545,8 +560,6 @@ export default function ChatScreen() {
     { role: "system", content: t("system.active") },
   ]);
   const [input,            setInput]            = useState("");
-  const [loading,          setLoading]          = useState(false);
-  const [engineLog,        setEngineLog]        = useState(null);
   const [showCloseModal,   setShowCloseModal]   = useState(false);
   const [isClosing,        setIsClosing]        = useState(false);
   const [sessionSummary,   setSessionSummary]   = useState("");
@@ -556,6 +569,13 @@ export default function ChatScreen() {
 
   const bottomRef   = useRef(null);
   const textareaRef = useRef(null);
+
+  // ── useChatActions hook — loading + engineLog hook içinde yönetilir
+  const { loading, engineLog, sendMessage } = useChatActions({
+    messages,
+    setMessages,
+    userId: user?.id,
+  });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -582,121 +602,15 @@ export default function ChatScreen() {
 
   if (!user) return <LoginGate onLogin={() => {}} />;
 
-  const logToEngine = async (userMsg, assistantMsg, riskScore, verdict, policy) => {
-    try {
-      await apiCall("/api/decisions", {
-        method: "POST",
-        body: JSON.stringify({
-          action:      userMsg.slice(0, 80),
-          policy:      policy ?? "chat-interface",
-          verdict:     verdict ?? (riskScore <= 3 ? "PERMIT" : riskScore <= 7 ? "ASK_HUMAN" : "DENY"),
-          criticality: riskScore <= 3 ? "LOW" : riskScore <= 7 ? "MEDIUM" : "HIGH",
-          reason:      assistantMsg.slice(0, 200),
-          latency:     Math.round(Math.random() * 400 + 100),
-        }),
-      });
-    } catch { /* engine offline — continue */ }
-  };
-
-  const sendMessage = async (isDecision = false) => {
-    const text = input.trim();
-    if (!text || loading) return;
-
-    const history = messages.filter(m => m.role !== "system");
-    setMessages(prev => [...prev, { role: "user", content: text, isDecision }]);
-    setInput("");
-    setLoading(true);
-    setEngineLog(null);
-
-    try {
-      const data = await apiCall("/api/ai/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          messages: [
-            ...history.map(m => ({ role: m.role, content: m.content })),
-            { role: "user", content: text },
-          ],
-          max_tokens: 1024,
-        }),
-      });
-
-      const reply  = data.reply   ?? "";
-      const risk   = data.risk    ?? 1;
-
-      if (!isDecision) {
-        setMessages(prev => [...prev, { role: "assistant", content: reply, risk }]);
-        return;
-      }
-
-      let finalVerdict  = data.verdict  ?? null;
-      let finalPolicy   = data.policy   ?? "chat-interface";
-      let softSteer     = data.soft_steer ?? null;
-
-      try {
-        const applyData = await apiCall("/api/ai/apply", {
-          method: "POST",
-          body: JSON.stringify({
-            decision: {
-              category: data.category ?? "GENERAL",
-              payload: {
-                action_name: text.slice(0, 80),
-                params: { message: text },
-              },
-              context: {
-                risk_level: risk <= 3 ? "LOW" : risk <= 7 ? "MEDIUM" : "HIGH",
-                session_id: user.id,
-              },
-            },
-          }),
-        });
-
-        if (applyData.matched) {
-          finalVerdict = applyData.verdict ?? (applyData.success ? "PERMIT" : "DENY");
-          finalPolicy  = applyData.policy  ?? finalPolicy;
-          softSteer    = applyData.soft_steer ?? softSteer;
-          setEngineLog({ risk, status: finalVerdict, policy: finalPolicy });
-        } else {
-          finalVerdict = null;
-          setEngineLog(null);
-        }
-      } catch {
-        await logToEngine(text, reply, risk, finalVerdict, finalPolicy);
-        if (finalVerdict) {
-          setEngineLog({ risk, status: finalVerdict, policy: finalPolicy });
-        }
-      }
-
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", content: reply, risk, verdict: finalVerdict, softSteer },
-      ]);
-
-    } catch (err) {
-      setMessages(prev => [...prev, { role: "assistant", content: `${t("error_prefix")}${err.message}` }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // ── Adım 1: Modal onayı → backend çağrısı → özet modal'a geç ─
   const handleSessionClose = async () => {
     setIsClosing(true);
     try {
-      const history = messages.filter(m => m.role !== "system");
-
-      const data = await apiCall("/api/ai/session/close", {
-        method: "POST",
-        body: JSON.stringify({
-          project_id: user.id,   // TODO: PROD — gerçek project_id props/context'ten gelmeli
-          messages:   history.map(m => ({ role: m.role, content: m.content })),
-        }),
-      });
-
+      const data = await fetchSessionClose({ userId: user.id, messages });
       setSessionSummary(data.summary_content ?? "");
       setSummaryError(data.summary_error ?? null);
       setShowCloseModal(false);
       setShowSummaryModal(true);
-
     } catch (err) {
       setMessages(prev => [
         ...prev,
@@ -717,7 +631,6 @@ export default function ChatScreen() {
         project_id: user.id,   // TODO: PROD — gerçek project_id props/context'ten gelmeli
       });
       await triggerSync();
-
       setShowSummaryModal(false);
       setSessionSummary("");
       setSummaryError(null);
@@ -747,7 +660,16 @@ export default function ChatScreen() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(false); }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input, false);
+      setInput("");
+    }
+  };
+
+  const handleSend = (isDecision) => {
+    sendMessage(input, isDecision);
+    setInput("");
   };
 
   return (
@@ -867,7 +789,7 @@ export default function ChatScreen() {
           />
 
           <button
-            onClick={() => sendMessage(true)}
+            onClick={() => handleSend(true)}
             disabled={!input.trim() || loading}
             title={t("input.decision_tooltip")}
             style={{
@@ -883,7 +805,7 @@ export default function ChatScreen() {
           </button>
 
           <button
-            onClick={() => sendMessage(false)}
+            onClick={() => handleSend(false)}
             disabled={!input.trim() || loading}
             style={{
               width: 36, height: 36, borderRadius: 9, border: "none",
