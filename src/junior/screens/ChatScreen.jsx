@@ -13,7 +13,7 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { T } from "../../tokens";
 import { useAuth } from "../hooks/useAuth";
-import { useSovereignMemory } from "../hooks/useSovereignMemory";
+import { useSovereignMemory } from "../../memory/useSovereignMemory";
 
 // Tauri ortamı tespiti
 const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
