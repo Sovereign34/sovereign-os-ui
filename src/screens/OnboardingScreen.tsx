@@ -1,5 +1,6 @@
 // src/screens/OnboardingScreen.tsx
 // Session 12 — Onboarding akışı: master plan girişi + /api/project/create bağlantısı
+// TB-6 — Session 37: goToApp() localStorage'a active_project_id + active_project_name yazar
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -91,8 +92,15 @@ export default function OnboardingScreen() {
     }
   }
 
-  // ── Tamamlandı → yönlendir ──────────────────────────────────────
+  // ── Tamamlandı → localStorage'a yaz → yönlendir ─────────────────
+  // TB-6: project_id + project_name localStorage'a yazılır
+  // ChatScreen bu değerleri okuyarak aktif projeyi bilir
+  // Edge: projectId null ise (kullanıcı atladıysa) localStorage'a yazılmaz
   function goToApp() {
+    if (projectId) {
+      localStorage.setItem("active_project_id",   projectId);
+      localStorage.setItem("active_project_name", projectName.trim());
+    }
     navigate("/junior", { replace: true });
   }
 
