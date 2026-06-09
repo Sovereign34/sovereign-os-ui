@@ -224,6 +224,9 @@ function GlobalStyle() {
       .adapter-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; border-radius:14px; overflow:hidden; border:1px solid ${T.border}; }
       @media (max-width:768px) { .adapter-grid { grid-template-columns:1fr; } }
 
+      .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; }
+      @media (max-width:600px) { .compare-grid { grid-template-columns:1fr; } }
+
       @media (max-width:640px) { .section-pad { padding-left:16px !important; padding-right:16px !important; } }
       @media (max-width:540px) { .footer-inner { flex-direction:column; align-items:flex-start; gap:12px; } }
 
@@ -242,6 +245,36 @@ function GlobalStyle() {
       }
       input[type="email"]:focus { border-color:${T.accent}; box-shadow:0 0 0 3px ${T.accent}22; }
       input[type="email"]::placeholder { color:${T.textTertiary}; }
+
+      /* Focus visible for keyboard nav */
+      :focus-visible {
+        outline:2px solid ${T.accent};
+        outline-offset:3px;
+        border-radius:4px;
+      }
+
+      /* Toast notification */
+      .toast {
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        padding:12px 20px; border-radius:10px; z-index:999;
+        font-size:13px; font-family:'Inter',sans-serif; font-weight:600;
+        display:flex; align-items:center; gap:8px;
+        animation:fade-up .3s ease both;
+        box-shadow:0 8px 32px rgba(0,0,0,.4);
+        white-space:nowrap;
+      }
+      .toast-error { background:${T.danger}; color:#fff; }
+
+      /* Reduced motion — disable all animations */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration:0.01ms !important;
+          animation-iteration-count:1 !important;
+          transition-duration:0.01ms !important;
+        }
+        .noise-layer { display:none; }
+        html { scroll-behavior:auto; }
+      }
     `}</style>
   );
 }
@@ -565,6 +598,20 @@ function LiveDecisionCard() {
   );
 }
 
+// ── TOAST ────────────────────────────────────────────────────────
+function Toast({ message, type = "error", onClose }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3500);
+    return () => clearTimeout(t);
+  }, [onClose]);
+  return (
+    <div className={`toast toast-${type}`} role="alert" aria-live="assertive">
+      <span>{type === "error" ? "✗" : "✓"}</span>
+      {message}
+    </div>
+  );
+}
+
 // ── NAV ─────────────────────────────────────────────────────────
 const DOWNLOAD_URL = "https://github.com/fourmeme21/sovereign-os-ui/releases/download/v0.7.4/sovereign-os_0.6.6_x64-setup.exe";
 
@@ -577,7 +624,7 @@ function Nav() {
   }, []);
 
   return (
-    <nav style={{
+    <nav aria-label="Main navigation" style={{
       position:"fixed", top:0, left:0, right:0, zIndex:100,
       padding:"0 24px",
       background:scrolled ? `${T.bgPrimary}E8` : "transparent",
@@ -592,7 +639,7 @@ function Nav() {
             background:`linear-gradient(135deg,${T.accent},#9061F9)`,
             display:"flex", alignItems:"center", justifyContent:"center",
             fontSize:14, fontWeight:800, color:"#fff", fontFamily:"'Outfit',sans-serif",
-          }}>S</div>
+          }} aria-hidden="true">S</div>
           <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:15, color:T.textPrimary, letterSpacing:".02em" }}>
             SOVEREIGN<span className="accent-text"> ENGINE</span>
           </span>
@@ -601,22 +648,22 @@ function Nav() {
         <div className="nav-status" style={{
           alignItems:"center", gap:7, padding:"5px 12px", borderRadius:20,
           background:T.bgSurface, border:`1px solid ${T.border}`,
-        }}>
-          <div className="live-dot" />
+        }} aria-label="System status: operational">
+          <div className="live-dot" aria-hidden="true" />
           <span style={{ fontSize:11, color:T.success, fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>
             OPERATIONAL
           </span>
         </div>
 
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <a href={DOWNLOAD_URL} className="nav-download" style={{ textDecoration:"none" }}>
+          <a href={DOWNLOAD_URL} className="nav-download" style={{ textDecoration:"none" }} aria-label="Download desktop app version 0.6.6">
             <button className="btn-ghost" style={{ padding:"9px 16px", fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
-              <span style={{ fontSize:13 }}>⬇</span>
+              <span style={{ fontSize:13 }} aria-hidden="true">⬇</span>
               Desktop App
               <span style={{ fontSize:9, opacity:.55, fontFamily:"'JetBrains Mono',monospace", background:T.bgElevated, padding:"2px 5px", borderRadius:4 }}>v0.6.6</span>
             </button>
           </a>
-          <a href="/junior" style={{ textDecoration:"none" }}>
+          <a href="/junior" style={{ textDecoration:"none" }} aria-label="Open Sovereign Engine web app">
             <button className="btn-primary" style={{ padding:"9px 18px", fontSize:13, animation:"none" }}>
               Open App →
             </button>
@@ -630,7 +677,7 @@ function Nav() {
 // ── HERO ─────────────────────────────────────────────────────────
 function HeroSection() {
   return (
-    <section style={{
+    <section aria-label="Hero" style={{
       minHeight:"100vh", display:"flex", alignItems:"center",
       position:"relative", overflow:"hidden", padding:"80px 24px 60px",
     }}>
@@ -654,43 +701,31 @@ function HeroSection() {
             }}>
               <div className="live-dot" style={{width:6,height:6}} />
               <span style={{ fontSize:11, color:T.textSecondary, fontFamily:"'JetBrains Mono',monospace", fontWeight:500 }}>
-                SOVEREIGN ENGINE OS · DECISION RUNTIME
+                SOVEREIGN ENGINE OS · PROJECT MEMORY RUNTIME
               </span>
             </div>
 
             <h1 className="hero-h1" style={{
               fontFamily:"'Outfit',sans-serif", fontWeight:900,
-              fontSize:"clamp(40px,5vw,68px)", lineHeight:1.0,
-              color:T.textPrimary, marginBottom:12,
+              fontSize:"clamp(34px,5vw,64px)", lineHeight:1.05,
+              color:T.textPrimary, marginBottom:16,
               animation:"fade-up .7s .2s both", letterSpacing:"-.02em",
             }}>
-              The AI layer that<br />
-              <span className="accent-text">knows what it's doing.</span>
+              Your AI forgets.<br />
+              <span style={{ color:T.danger }}>Your project pays the price.</span>
             </h1>
 
             <p style={{
               fontSize:"clamp(15px,1.6vw,18px)", color:T.textSecondary,
               lineHeight:1.7, maxWidth:440, marginBottom:36, animation:"fade-up .7s .35s both",
             }}>
-              Every decision intercepted, scored, and routed before execution.
-              Persistent memory across every session.
-              Your project never forgets.
+              Sovereign preserves project memory, decisions, and context across
+              every AI session. Build once. Continue forever.
             </p>
 
-            <div style={{
-              padding:"14px 20px", borderRadius:10,
-              background:`${T.accent}10`, border:`1px solid ${T.accent}30`,
-              marginBottom:36, animation:"fade-up .7s .45s both",
-            }}>
-              <span style={{ fontSize:13, color:T.textSecondary }}>The only question that matters: </span>
-              <span style={{ fontSize:13, color:T.textPrimary, fontWeight:600 }}>
-                "Can I ship this to production?"
-              </span>
-            </div>
-
-            <div style={{ display:"flex", gap:12, flexWrap:"wrap", animation:"fade-up .7s .55s both" }}>
+            <div style={{ display:"flex", gap:12, flexWrap:"wrap", animation:"fade-up .7s .45s both" }}>
               <a href="#waitlist" style={{ textDecoration:"none" }}>
-                <button className="btn-primary">Get Early Access →</button>
+                <button className="btn-primary">Create Your Project Brain →</button>
               </a>
               <a href={DOWNLOAD_URL} style={{ textDecoration:"none" }}>
                 <button className="btn-ghost">Download Desktop App</button>
@@ -829,30 +864,24 @@ function StatusSection() {
   );
 }
 
-// ── PROBLEM ──────────────────────────────────────────────────────
-const PROBLEMS = [
-  {
-    icon:"◼", title:"Every session starts from zero",
-    color:T.danger,
-    body:"No memory of last week's failed deploy. No context of the codebase patterns. Every conversation, your AI starts blind — same mistakes, different day.",
-    stat:"0%", statLabel:"context carried between sessions",
-  },
-  {
-    icon:"◈", title:"You can't see what your AI decided",
-    color:T.warning,
-    body:"Hundreds of actions taken. Zero visibility. When something breaks at 2AM, there's no audit trail, no reasoning, no record. Just broken production.",
-    stat:"∞", statLabel:"invisible decisions accumulating",
-  },
-  {
-    icon:"◉", title:"Anything goes. Nothing's recorded. No one's accountable.",
-    color:T.accent,
-    body:"Without governance, your AI operates on vibes. No rules. No limits. No chain of custody. You find out something went wrong when users do.",
-    stat:"100%", statLabel:"of AI actions ungoverned",
-  },
-];
-
+// ── WITHOUT / WITH ────────────────────────────────────────────────
 function ProblemSection() {
   const ref = useReveal();
+
+  const without = [
+    "Claude forgot the architecture.",
+    "Cursor changed a critical pattern.",
+    "A decision made last month disappeared.",
+    "The team repeated work.",
+  ];
+
+  const withS = [
+    "Decisions persist across every session.",
+    "Context survives model switches.",
+    "AI follows project rules automatically.",
+    "Every session continues where the last ended.",
+  ];
+
   return (
     <section ref={ref} className="section-reveal" style={{ padding:"80px 24px" }}>
       <div style={{ maxWidth:1120, margin:"0 auto" }}>
@@ -866,24 +895,45 @@ function ProblemSection() {
           </h2>
         </div>
 
-        <div className="problem-grid">
-          {PROBLEMS.map((p, i) => (
-            <div key={i} style={{
-              padding:"32px 28px", background:T.bgSurface,
-              borderRight:i < 2 ? `1px solid ${T.border}` : "none",
-              position:"relative", overflow:"hidden", transition:"background .2s",
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = T.bgElevated}
-              onMouseLeave={e => e.currentTarget.style.background = T.bgSurface}
-            >
-              <div style={{ fontSize:28, color:p.color, marginBottom:20, fontFamily:"'JetBrains Mono',monospace" }}>{p.icon}</div>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:42, color:p.color, lineHeight:1, marginBottom:4, opacity:.9 }}>{p.stat}</div>
-              <div style={{ fontSize:10, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace", letterSpacing:".1em", marginBottom:20 }}>{p.statLabel}</div>
-              <h3 style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:18, color:T.textPrimary, marginBottom:12 }}>{p.title}</h3>
-              <p style={{ fontSize:14, color:T.textSecondary, lineHeight:1.7 }}>{p.body}</p>
-              <div style={{ position:"absolute", top:0, right:0, width:60, height:60, background:`radial-gradient(circle at 100% 0%, ${p.color}14, transparent 70%)` }} />
+        <div style={{
+          display:"grid", gridTemplateColumns:"1fr 1fr", gap:1,
+          borderRadius:14, overflow:"hidden", border:`1px solid ${T.border}`,
+        }} className="compare-grid">
+          {/* Without */}
+          <div style={{ padding:"36px 32px", background:T.bgSurface, borderRight:`1px solid ${T.border}` }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:28 }}>
+              <div style={{ width:28, height:28, borderRadius:6, background:`${T.danger}14`, border:`1px solid ${T.danger}30`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <span style={{ fontSize:13 }}>✗</span>
+              </div>
+              <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:16, color:T.danger }}>Without Sovereign</span>
             </div>
-          ))}
+            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+              {without.map((item, i) => (
+                <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                  <div style={{ width:6, height:6, borderRadius:"50%", background:T.danger, opacity:.6, marginTop:6, flexShrink:0 }} />
+                  <span style={{ fontSize:14, color:T.textSecondary, lineHeight:1.6 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* With */}
+          <div style={{ padding:"36px 32px", background:`${T.success}05` }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:28 }}>
+              <div style={{ width:28, height:28, borderRadius:6, background:`${T.success}14`, border:`1px solid ${T.success}30`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <span style={{ fontSize:13 }}>✓</span>
+              </div>
+              <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:16, color:T.success }}>With Sovereign</span>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+              {withS.map((item, i) => (
+                <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                  <div style={{ width:6, height:6, borderRadius:"50%", background:T.success, marginTop:6, flexShrink:0 }} />
+                  <span style={{ fontSize:14, color:T.textPrimary, lineHeight:1.6, fontWeight:500 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -983,17 +1033,16 @@ function AdapterSection() {
               ADAPTERv1
             </div>
             <h2 style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(26px,3vw,40px)", color:T.textPrimary, letterSpacing:"-.01em", marginBottom:16 }}>
-              Built once.<br />
-              <span className="accent-text">Runs everywhere your AI does.</span>
+              Turn a Project Plan<br />
+              <span className="accent-text">Into a Project Brain.</span>
             </h2>
-            <p style={{ fontSize:15, color:T.textSecondary, lineHeight:1.75, marginBottom:24 }}>
-              ADAPTERv1 reads your master plan and generates a complete
-              project-specific governance layer — CORE.md, AI_AGENT.md, adapter.ts,
-              decision trees. Your codebase's rules, embedded once, enforced permanently.
+            <p style={{ fontSize:15, color:T.textSecondary, lineHeight:1.75, marginBottom:16 }}>
+              Describe your project once. Sovereign generates the decision framework,
+              memory structure, and operating rules your AI will follow — permanently.
             </p>
             <p style={{ fontSize:15, color:T.textSecondary, lineHeight:1.75, marginBottom:32 }}>
-              This isn't configuration. It's methodology transfer. The engine learns
-              how your project thinks — and holds every AI action accountable to it.
+              CORE.md, AI_AGENT.md, adapter.ts, decision trees — all derived from your
+              master plan. Your codebase's rules, embedded once, enforced forever.
             </p>
 
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -1043,6 +1092,173 @@ function AdapterSection() {
                     <span style={{ fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:T.textSecondary }}>{f}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── BEFORE / AFTER TIMELINE ──────────────────────────────────────
+function BeforeAfterSection() {
+  const ref = useReveal();
+
+  const before = [
+    { week:"Week 1",  text:"AI understands everything." },
+    { week:"Week 4",  text:"AI forgets key decisions." },
+    { week:"Week 8",  text:"Context becomes fragmented." },
+    { week:"Week 12", text:"Nobody remembers why the system looks like this." },
+  ];
+
+  const after = [
+    { week:"Week 1",  text:"AI learns project rules." },
+    { week:"Week 4",  text:"Decisions preserved." },
+    { week:"Week 8",  text:"Context grows." },
+    { week:"Week 12", text:"AI operates with accumulated project knowledge." },
+  ];
+
+  return (
+    <section ref={ref} className="section-reveal" style={{ padding:"80px 24px", background:T.bgSurface }}>
+      <div style={{ maxWidth:1120, margin:"0 auto" }}>
+        <div style={{ textAlign:"center", marginBottom:56 }}>
+          <div style={{ fontSize:11, color:T.accent, fontFamily:"'JetBrains Mono',monospace", fontWeight:700, letterSpacing:".18em", marginBottom:12 }}>
+            THE DIFFERENCE
+          </div>
+          <h2 style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(28px,3.5vw,44px)", color:T.textPrimary, letterSpacing:"-.01em" }}>
+            12 weeks.<br />
+            <span className="accent-text">Two very different outcomes.</span>
+          </h2>
+        </div>
+
+        <div className="compare-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, borderRadius:14, overflow:"hidden", border:`1px solid ${T.border}` }}>
+          {/* Before */}
+          <div style={{ padding:"36px 32px", background:T.bgPrimary, borderRight:`1px solid ${T.border}` }}>
+            <div style={{ fontSize:12, fontWeight:700, color:T.danger, fontFamily:"'JetBrains Mono',monospace", letterSpacing:".14em", marginBottom:28 }}>
+              BEFORE SOVEREIGN
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+              {before.map((item, i) => (
+                <div key={i} style={{ display:"flex", gap:16, paddingBottom: i < before.length - 1 ? 28 : 0 }}>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
+                    <div style={{ width:10, height:10, borderRadius:"50%", background:T.danger, opacity: 1 - i * 0.18, flexShrink:0 }} />
+                    {i < before.length - 1 && <div style={{ width:1, flex:1, background:`${T.danger}20`, marginTop:4 }} />}
+                  </div>
+                  <div style={{ paddingBottom:4 }}>
+                    <div style={{ fontSize:10, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace", marginBottom:4 }}>{item.week}</div>
+                    <div style={{ fontSize:14, color: i === 0 ? T.textPrimary : T.textSecondary, lineHeight:1.5, opacity: 1 - i * 0.15 }}>{item.text}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* After */}
+          <div style={{ padding:"36px 32px", background:`${T.success}04` }}>
+            <div style={{ fontSize:12, fontWeight:700, color:T.success, fontFamily:"'JetBrains Mono',monospace", letterSpacing:".14em", marginBottom:28 }}>
+              AFTER SOVEREIGN
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+              {after.map((item, i) => (
+                <div key={i} style={{ display:"flex", gap:16, paddingBottom: i < after.length - 1 ? 28 : 0 }}>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
+                    <div style={{ width:10, height:10, borderRadius:"50%", background:T.success, flexShrink:0 }} />
+                    {i < after.length - 1 && <div style={{ width:1, flex:1, background:`${T.success}30`, marginTop:4 }} />}
+                  </div>
+                  <div style={{ paddingBottom:4 }}>
+                    <div style={{ fontSize:10, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace", marginBottom:4 }}>{item.week}</div>
+                    <div style={{ fontSize:14, color:T.textPrimary, lineHeight:1.5, fontWeight:500 }}>{item.text}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── ROI CALCULATOR ───────────────────────────────────────────────
+function ROISection() {
+  const ref = useReveal();
+  const [devs, setDevs] = useState(5);
+  const hourlyRate = 100;
+  const hoursPerWeek = 2;
+  const totalHoursWeek = devs * hoursPerWeek;
+  const totalHoursMonth = totalHoursWeek * 4;
+  const costMonth = totalHoursMonth * hourlyRate;
+
+  return (
+    <section ref={ref} className="section-reveal" style={{ padding:"80px 24px" }}>
+      <div style={{ maxWidth:1120, margin:"0 auto" }}>
+        <div style={{ textAlign:"center", marginBottom:56 }}>
+          <div style={{ fontSize:11, color:T.accent, fontFamily:"'JetBrains Mono',monospace", fontWeight:700, letterSpacing:".18em", marginBottom:12 }}>
+            THE COST OF FORGETTING
+          </div>
+          <h2 style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(28px,3.5vw,44px)", color:T.textPrimary, letterSpacing:"-.01em" }}>
+            How much context loss<br />
+            <span style={{ color:T.warning }}>costs your team.</span>
+          </h2>
+        </div>
+
+        <div className="compare-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, borderRadius:14, overflow:"hidden", border:`1px solid ${T.border}` }}>
+          {/* Left: inputs */}
+          <div style={{ padding:"40px 36px", background:T.bgSurface, borderRight:`1px solid ${T.border}` }}>
+            <div style={{ fontSize:13, color:T.textSecondary, marginBottom:32, lineHeight:1.7 }}>
+              A developer spends an average of{" "}
+              <span style={{ color:T.textPrimary, fontWeight:600 }}>2 hours/week</span>{" "}
+              rebuilding context that AI forgot. Adjust your team size:
+            </div>
+
+            <div style={{ marginBottom:32 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
+                <span style={{ fontSize:12, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>TEAM SIZE</span>
+                <span style={{ fontSize:16, fontWeight:800, color:T.textPrimary, fontFamily:"'Outfit',sans-serif" }}>{devs} developers</span>
+              </div>
+              <input
+                id="team-size-slider"
+                type="range" min={1} max={20} value={devs}
+                onChange={e => setDevs(Number(e.target.value))}
+                style={{ width:"100%", accentColor:T.accent, cursor:"pointer" }}
+                aria-label={`Team size: ${devs} developers`}
+                aria-valuemin={1} aria-valuemax={20} aria-valuenow={devs}
+              />
+              <div style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
+                <span style={{ fontSize:10, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>1</span>
+                <span style={{ fontSize:10, color:T.textTertiary, fontFamily:"'JetBrains Mono',monospace" }}>20</span>
+              </div>
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+              {[
+                { label:"Hours lost / week", value:`${totalHoursWeek}h`, color:T.textPrimary },
+                { label:"Hours lost / month", value:`${totalHoursMonth}h`, color:T.warning },
+              ].map(r => (
+                <div key={r.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 16px", borderRadius:8, background:T.bgElevated, border:`1px solid ${T.border}` }}>
+                  <span style={{ fontSize:13, color:T.textSecondary }}>{r.label}</span>
+                  <span style={{ fontSize:16, fontWeight:800, color:r.color, fontFamily:"'Outfit',sans-serif" }}>{r.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: result */}
+          <div style={{ padding:"40px 36px", background:`${T.danger}06`, display:"flex", flexDirection:"column", justifyContent:"center" }}>
+            <div style={{ fontSize:11, color:T.danger, fontFamily:"'JetBrains Mono',monospace", fontWeight:700, letterSpacing:".14em", marginBottom:16 }}>
+              MONTHLY COST
+            </div>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:"clamp(40px,5vw,64px)", color:T.danger, lineHeight:1, marginBottom:8 }}>
+              ${costMonth.toLocaleString()}
+            </div>
+            <div style={{ fontSize:13, color:T.textSecondary, lineHeight:1.7, marginBottom:32 }}>
+              wasted rebuilding context your AI should have remembered.
+            </div>
+            <div style={{ padding:"16px 20px", borderRadius:10, background:`${T.success}0A`, border:`1px solid ${T.success}25` }}>
+              <div style={{ fontSize:12, color:T.success, fontFamily:"'JetBrains Mono',monospace", fontWeight:700, marginBottom:6 }}>SOVEREIGN ELIMINATES THIS TAX</div>
+              <div style={{ fontSize:13, color:T.textSecondary, lineHeight:1.6 }}>
+                Persistent memory means your AI never asks the same question twice. Every session inherits full project context.
               </div>
             </div>
           </div>
@@ -1192,6 +1408,7 @@ function WaitlistSection() {
   const ref = useReveal();
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle");
+  const [toast, setToast] = useState(null);
 
   const handleSubmit = async () => {
     if (!email.includes("@")) return;
@@ -1211,24 +1428,25 @@ function WaitlistSection() {
       setState("done");
     } catch {
       setState("idle");
-      alert("Kayıt başarısız, tekrar dene.");
+      setToast({ message:"Registration failed. Please try again.", type:"error" });
     }
   };
 
   return (
-    <section ref={ref} className="section-reveal" id="waitlist" style={{ padding:"100px 24px 120px", position:"relative", overflow:"hidden", background:T.bgSurface }}>
+    <section ref={ref} className="section-reveal" id="waitlist" aria-label="Early access waitlist" style={{ padding:"100px 24px 120px", position:"relative", overflow:"hidden", background:T.bgSurface }}>
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       <div style={{
         position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
         width:800, height:400, pointerEvents:"none",
         background:`radial-gradient(ellipse, ${T.accent}10 0%, transparent 70%)`,
-      }} />
+      }} aria-hidden="true" />
 
       <div style={{ maxWidth:600, margin:"0 auto", textAlign:"center", position:"relative", zIndex:1 }}>
         <div style={{
           display:"inline-flex", alignItems:"center", gap:8, padding:"6px 14px",
           borderRadius:20, background:T.bgPrimary, border:`1px solid ${T.border}`, marginBottom:24,
         }}>
-          <div className="live-dot" style={{width:6,height:6}} />
+          <div className="live-dot" style={{width:6,height:6}} aria-hidden="true" />
           <span style={{ fontSize:11, color:T.textSecondary, fontFamily:"'JetBrains Mono',monospace" }}>LIMITED EARLY ACCESS</span>
         </div>
 
@@ -1254,36 +1472,46 @@ function WaitlistSection() {
             padding:"20px 28px", borderRadius:12,
             background:`${T.success}10`, border:`1px solid ${T.success}30`,
             animation:"stamp .4s cubic-bezier(.34,1.56,.64,1) both",
-          }}>
-            <div style={{ fontSize:22, marginBottom:8 }}>✅</div>
+          }} role="status" aria-live="polite">
+            <div style={{ fontSize:22, marginBottom:8 }} aria-hidden="true">✅</div>
             <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:18, color:T.success, marginBottom:4 }}>You're on the list.</div>
             <div style={{ fontSize:13, color:T.textSecondary }}>We'll reach out when your access is ready.</div>
           </div>
         ) : (
           <div style={{ display:"flex", gap:10, maxWidth:440, margin:"0 auto", flexWrap:"wrap", justifyContent:"center" }}>
+            <label htmlFor="waitlist-email" style={{ position:"absolute", width:1, height:1, overflow:"hidden", clip:"rect(0,0,0,0)" }}>
+              Email address
+            </label>
             <input
-              type="email" placeholder="your@email.com" value={email}
+              id="waitlist-email"
+              type="email"
+              placeholder="your@email.com"
+              value={email}
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleSubmit()}
               style={{ flex:"1 1 220px" }}
+              aria-describedby="waitlist-hint"
+              autoComplete="email"
             />
             <button
-              className="btn-primary" onClick={handleSubmit}
+              className="btn-primary"
+              onClick={handleSubmit}
               disabled={state === "loading" || !email.includes("@")}
               style={{ opacity:(!email.includes("@") || state === "loading") ? .5 : 1 }}
+              aria-label="Join the early access waitlist"
             >
               {state === "loading" ? (
-                <span style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <span className="db0" style={{width:5,height:5,borderRadius:"50%",background:"#fff",display:"inline-block"}}/>
-                  <span className="db1" style={{width:5,height:5,borderRadius:"50%",background:"#fff",display:"inline-block"}}/>
-                  <span className="db2" style={{width:5,height:5,borderRadius:"50%",background:"#fff",display:"inline-block"}}/>
+                <span style={{ display:"flex", alignItems:"center", gap:6 }} aria-label="Submitting…">
+                  <span className="db0" style={{width:5,height:5,borderRadius:"50%",background:"#fff",display:"inline-block"}} aria-hidden="true"/>
+                  <span className="db1" style={{width:5,height:5,borderRadius:"50%",background:"#fff",display:"inline-block"}} aria-hidden="true"/>
+                  <span className="db2" style={{width:5,height:5,borderRadius:"50%",background:"#fff",display:"inline-block"}} aria-hidden="true"/>
                 </span>
-              ) : "Get Early Access →"}
+              ) : "Create Your Project Brain →"}
             </button>
           </div>
         )}
 
-        <p style={{ fontSize:11, color:T.textTertiary, marginTop:16, fontFamily:"'JetBrains Mono',monospace" }}>
+        <p id="waitlist-hint" style={{ fontSize:11, color:T.textTertiary, marginTop:16, fontFamily:"'JetBrains Mono',monospace" }}>
           No spam. No noise. Access when it's ready.
         </p>
       </div>
@@ -1330,9 +1558,11 @@ export default function App() {
         <HeroSection />
         <StatusSection />
         <ProblemSection />
-        <LayersSection />
         <AdapterSection />
+        <BeforeAfterSection />
+        <ROISection />
         <FeaturesSection />
+        <LayersSection />
         <RiskTierSection />
         <WaitlistSection />
       </main>
