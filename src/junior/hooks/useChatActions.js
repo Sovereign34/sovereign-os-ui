@@ -1,7 +1,8 @@
 // useChatActions.js
 // Amaç:    Chat ve karar mesajlarının gönderilmesi + engine log yönetimi
 // Bağlı:   /api/ai/chat, /api/ai/apply, /api/decisions rotaları
-// Karar:   Karar #45 (sistem prompt engine'e taşındı), Session 22 refactor, TB-6 Session 37
+// Karar:   Karar #45 (sistem prompt engine'e taşındı), Session 22 refactor, TB-6 Session 37,
+//          TB-13 (quality alanı mesaj objesine eklendi — codeQualityGuard çıktısı)
 // Dokunma: apiCall davranışı değişirse sendChatMessage + sendDecisionMessage güncellenmeli
 
 import { useState } from "react";
@@ -68,14 +69,16 @@ const applyDecision = async ({ text, risk, userId, projectId, initialVerdict, in
 // ── sendChatMessage: sohbet modu — sadece reply + risk ───────────
 // Edge: /api/ai/chat timeout → catch yakalanır, loading false'a döner
 // Edge: reply boş → "" ile mesaj eklenir, UI boş balon gösterir
+// Edge: quality null → kod üretim isteği değilse backend null döner, badge render edilmez
 // TB-6: projectId payload'a eklendi
+// TB-13: quality alanı data'dan alınarak mesaj objesine eklendi
 const sendChatMessage = async ({ text, messages, projectId, setMessages, setLoading }) => {
   const history = messages.filter(m => m.role !== "system");
   setMessages(prev => [...prev, { role: "user", content: text, isDecision: false }]);
   setLoading(true);
 
   try {
-    const data  = await apiCall("/api/ai/chat", {
+    const data    = await apiCall("/api/ai/chat", {
       method: "POST",
       body: JSON.stringify({
         messages: [
@@ -86,9 +89,10 @@ const sendChatMessage = async ({ text, messages, projectId, setMessages, setLoad
         project_id:  projectId ?? null,
       }),
     });
-    const reply = data.reply ?? "";
-    const risk  = data.risk  ?? 1;
-    setMessages(prev => [...prev, { role: "assistant", content: reply, risk }]);
+    const reply   = data.reply   ?? "";
+    const risk    = data.risk    ?? 1;
+    const quality = data.quality ?? null; // TB-13: codeQualityGuard çıktısı
+    setMessages(prev => [...prev, { role: "assistant", content: reply, risk, quality }]);
   } catch (err) {
     setMessages(prev => [...prev, { role: "assistant", content: `Hata: ${err.message}` }]);
   } finally {
@@ -100,7 +104,9 @@ const sendChatMessage = async ({ text, messages, projectId, setMessages, setLoad
 // Edge: /api/ai/chat başarısız → catch, loading false, hata balonu
 // Edge: /api/ai/apply erişilemez → logToEngine fallback devreye girer
 // Edge: verdict DENY → softSteer VerdictBanner'a iletilir
+// Edge: quality null → kod üretim isteği değilse backend null döner, badge render edilmez
 // TB-6: projectId payload'a eklendi
+// TB-13: quality alanı data'dan alınarak mesaj objesine eklendi
 const sendDecisionMessage = async ({
   text, messages, userId, projectId,
   setMessages, setLoading, setEngineLog,
@@ -128,6 +134,7 @@ const sendDecisionMessage = async ({
     const initialVerdict = data.verdict     ?? null;
     const initialPolicy  = data.policy      ?? "chat-interface";
     const initialSteer   = data.soft_steer  ?? null;
+    const quality        = data.quality     ?? null; // TB-13: codeQualityGuard çıktısı
 
     let verdict   = initialVerdict;
     let policy    = initialPolicy;
@@ -149,7 +156,7 @@ const sendDecisionMessage = async ({
     setEngineLog(engineLog);
     setMessages(prev => [
       ...prev,
-      { role: "assistant", content: reply, risk, verdict, softSteer },
+      { role: "assistant", content: reply, risk, verdict, softSteer, quality },
     ]);
   } catch (err) {
     setMessages(prev => [...prev, { role: "assistant", content: `Hata: ${err.message}` }]);
