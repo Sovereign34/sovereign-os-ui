@@ -206,7 +206,7 @@ export default function OnboardingScreen() {
 
           {/* Atla */}
           <button
-            onClick={() => navigate("/junior")}
+            onClick={() => navigate("/junior/chat")}
             style={{
               background: "transparent", border: "none",
               color: T.textTertiary, cursor: "pointer",
