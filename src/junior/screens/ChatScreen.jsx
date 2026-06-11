@@ -150,7 +150,7 @@ function ProjectDrawer({ activeProject, onSelect, onClose, userId, sessionToken 
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
-              onClick={() => { onClose(); navigate("/junior/onboarding"); }}
+              onClick={() => { onClose(); navigate("/onboarding"); }}
               title="Yeni proje oluştur"
               style={{
                 background: "rgba(124,58,237,0.12)",
@@ -212,7 +212,7 @@ function ProjectDrawer({ activeProject, onSelect, onClose, userId, sessionToken 
             }}>
               Henüz proje yok.<br /><br />
               <span
-                onClick={() => { onClose(); navigate("/junior/onboarding"); }}
+                onClick={() => { onClose(); navigate("/onboarding"); }}
                 style={{ color: "#9061F9", cursor: "pointer", textDecoration: "underline" }}
               >
                 + Yeni proje oluştur
