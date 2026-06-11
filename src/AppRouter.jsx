@@ -3,8 +3,9 @@
 // Phase C — /giris + /kayit rotaları eklendi, AuthGuard redirect güncellendi
 // Phase D — fiyatlandirma + odeme-basarili + ayarlar rotaları eklendi
 // Session 12 — /onboarding (AuthGuard) + /sifre-sifirla rotaları eklendi
+// Session 13 — /auth/callback eklendi (magic link iPhone fix)
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import LandingPage          from "./screens/LandingPage";
 import WaitlistAdmin        from "./screens/WaitlistAdmin";
@@ -23,8 +24,71 @@ import Baglan               from "./junior/screens/Baglan";
 import ChatScreen           from "./junior/screens/ChatScreen";
 import { useAuth }          from "./junior/hooks/useAuth";
 import { FeatureGate }      from "./components/FeatureGate";
+import { supabase }         from "./lib/supabaseClient";
+import { useAuthStore }     from "./stores/authStore";
+import { registerSession }  from "./junior/hooks/useAuth";
+import { useNavigate }      from "react-router-dom";
 
 const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD ?? "sovereign";
+
+// -- AUTH CALLBACK (Magic Link iPhone Fix) ---------------------
+function AuthCallbackScreen() {
+  const navigate   = useNavigate();
+  const setSession = useAuthStore((s) => s.setSession);
+
+  useEffect(() => {
+    // onAuthStateChange hash fragment'i otomatik parse eder
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+        setSession(session);
+        if (session.user?.id) registerSession(session.user.id);
+        listener.subscription.unsubscribe();
+        navigate("/onboarding", { replace: true });
+      }
+    });
+
+    // Fallback — session zaten kurulmuşsa (reload durumu)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSession(session);
+        listener.subscription.unsubscribe();
+        navigate("/onboarding", { replace: true });
+      }
+    });
+
+    // 8 saniye içinde session kurulmazsa login'e gönder
+    const timeout = setTimeout(() => {
+      listener.subscription.unsubscribe();
+      navigate("/giris", { replace: true });
+    }, 8000);
+
+    return () => {
+      listener.subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#0F0F0F",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "'Inter', system-ui, sans-serif",
+    }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10, margin: "0 auto 16px",
+          background: "linear-gradient(135deg,#7C3AED,#9061F9)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 18, color: "#fff", fontWeight: 800,
+        }}>S</div>
+        <div style={{ fontSize: 13, color: "#777770",
+          fontFamily: "'JetBrains Mono', monospace" }}>
+          oturum açılıyor...
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // -- ADMIN GATE ----------------------------------------
 function AdminGate({ children }) {
@@ -138,14 +202,15 @@ function AuthGuard({ children }) {
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/giris" element={<LoginScreen />} />
-      <Route path="/kayit" element={<RegisterScreen />} />
+      <Route path="/"             element={<LandingPage />} />
+      <Route path="/giris"        element={<LoginScreen />} />
+      <Route path="/kayit"        element={<RegisterScreen />} />
       <Route path="/sifre-sifirla" element={<ResetPasswordScreen />} />
-      <Route path="/onboarding" element={
+      <Route path="/auth/callback" element={<AuthCallbackScreen />} />
+      <Route path="/onboarding"   element={
         <AuthGuard><OnboardingScreen /></AuthGuard>
       } />
-      <Route path="/legal/:type" element={<LegalScreen />} />
+      <Route path="/legal/:type"  element={<LegalScreen />} />
 
       <Route
         path="/admin/waitlist"
