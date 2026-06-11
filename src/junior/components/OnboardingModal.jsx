@@ -1,10 +1,15 @@
 // src/junior/components/OnboardingModal.jsx
+// Amaç:    Modal onboarding akışı — engine bağlantısı + demo karar
+// Bağlı:   /api/ai/chat · ensureProject · authStore.tier
+// Karar:   Session 42 — Free tier Adım 2 kaldırıldı; upgrade yönlendirmesi eklendi
+// Dokunma: Adım sayısı değişirse STEPS dizisi ve progress bar güncellenmeli
 // Phase E.2 — 4 adımlı onboarding
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { ensureProject } from "../../utils/ensureProject.js";
+import { useAuthStore } from "../../stores/authStore";
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL;
 
@@ -24,6 +29,8 @@ const SAMPLE_DECISION = "Auth modülünde yeni OAuth provider ekleniyor — Goog
 export default function OnboardingModal({ onComplete }) {
   const navigate = useNavigate();
 
+  const { tier } = useAuthStore();
+
   const [step,          setStep]          = useState(0);
   const [projectName,   setProjectName]   = useState("my-saas");
   const [engineStatus,  setEngineStatus]  = useState(null); // null | "ok" | "error"
@@ -40,9 +47,11 @@ export default function OnboardingModal({ onComplete }) {
     },
     {
       id: 2,
-      title: "İlk Projeyi Oluştur",
-      desc: "Projene bir isim ver. Tüm kararlar ve hafıza bu proje altında toplanır.",
-      icon: "📁",
+      title: tier === "free" ? "Proje Oluşturmak için Solo Gerekiyor" : "İlk Projeyi Oluştur",
+      desc: tier === "free"
+        ? "Free planda proje oluşturma mevcut değil. Solo veya üzeri plana geçerek tam kapasiteye ulaş."
+        : "Projene bir isim ver. Tüm kararlar ve hafıza bu proje altında toplanır.",
+      icon: tier === "free" ? "🔒" : "📁",
     },
     {
       id: 3,
@@ -119,22 +128,25 @@ export default function OnboardingModal({ onComplete }) {
 
     // Adım 2: proje oluştur + UUID localStorage'a kaydet
     if (current.id === 2) {
-      if (!projectName.trim()) {
-        setError("Proje adı boş olamaz.");
-        return;
-      }
-      setLoading(true);
-      try {
-        const project = await ensureProject(supabase, projectName.trim());
-        if (project?.id) {
-          localStorage.setItem("sovereign_project_id", project.id);
+      // Free tier: proje oluşturma yok — adımı geç
+      if (tier !== "free") {
+        if (!projectName.trim()) {
+          setError("Proje adı boş olamaz.");
+          return;
         }
-      } catch (e) {
-        setError("Proje oluşturulamadı: " + e.message);
+        setLoading(true);
+        try {
+          const project = await ensureProject(supabase, projectName.trim());
+          if (project?.id) {
+            localStorage.setItem("sovereign_project_id", project.id);
+          }
+        } catch (e) {
+          setError("Proje oluşturulamadı: " + e.message);
+          setLoading(false);
+          return;
+        }
         setLoading(false);
-        return;
       }
-      setLoading(false);
     }
 
     // Adım 4: son adım — chat'e yönlendir
@@ -184,7 +196,7 @@ export default function OnboardingModal({ onComplete }) {
         </p>
 
         {/* Adım 2 — proje adı */}
-        {current.id === 2 && (
+        {current.id === 2 && tier !== "free" && (
           <input
             type="text"
             value={projectName}
@@ -196,6 +208,19 @@ export default function OnboardingModal({ onComplete }) {
               fontSize:13, fontFamily:"inherit", outline:"none", marginBottom:8,
             }}
           />
+        )}
+        {current.id === 2 && tier === "free" && (
+          <button
+            onClick={() => { onComplete(); navigate("/junior/fiyatlandirma"); }}
+            style={{
+              width:"100%", padding:"10px 0", borderRadius:8, border:"none",
+              background:`linear-gradient(135deg, ${T.accent}, #9061F9)`,
+              color:"#fff", fontSize:13, fontWeight:700,
+              cursor:"pointer", fontFamily:"inherit", marginBottom:8,
+            }}
+          >
+            Solo'ya Geç →
+          </button>
         )}
 
         {/* Adım 3 — engine check */}
