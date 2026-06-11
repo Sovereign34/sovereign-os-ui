@@ -18,32 +18,32 @@
       "price":    "$0",
       "period":   "/Monat",
       "cta":      "Aktueller Plan",
-      "features": ["50 Entscheidungen/Monat", "1 Projekt", "Community-Support"]
+      "features": ["30 Demo-Entscheidungen/Monat", "Keine Projekterstellung", "Community-Support"]
     },
     "solo": {
       "name":     "Solo",
-      "price":    "$29",
+      "price":    "$49",
       "period":   "/Monat",
       "cta":      "Solo holen →",
-      "features": ["500 Entscheidungen/Monat", "3 Projekte", "Sovereign Memory", "MCP Bridge", "GitHub-Integration"]
+      "features": ["300 Entscheidungen/Monat", "3 Projekte", "Sovereign Memory", "MCP Bridge", "GitHub-Integration"]
     },
     "pro": {
       "name":     "Pro",
-      "price":    "$79",
+      "price":    "$99",
       "period":   "/Monat",
       "cta":      "Pro holen →",
-      "features": ["800 Entscheidungen/Monat", "2 Plätze", "Unbegrenzte Projekte", "Audit-Export", "Prioritätssupport"]
+      "features": ["1000 Entscheidungen/Monat", "10 Projekte", "Audit-Export", "Prioritätssupport"]
     },
     "team": {
       "name":     "Team",
-      "price":    "$199",
+      "price":    "$249",
       "period":   "/Monat",
       "cta":      "Team holen →",
-      "features": ["2000 Entscheidungen/Monat", "10 Plätze", "SSO", "SLA-Garantie", "Dedizierter Support"]
+      "features": ["5000 Entscheidungen/Monat", "20 Projekte", "SSO", "SLA-Garantie", "Dedizierter Support"]
     }
   },
-  "manage":      "Abo verwalten (Dodo Portal) →",
-  "view_plans":  "Pläne ansehen →",
-  "portal_error":"Portal konnte nicht geöffnet werden.",
-  "footer":      "Alle Preise in USD.\nJederzeit kündbar."
+  "manage":       "Abo verwalten (Dodo Portal) →",
+  "view_plans":   "Pläne ansehen →",
+  "portal_error": "Portal konnte nicht geöffnet werden.",
+  "footer":       "Alle Preise in USD.\nJederzeit kündbar."
 }
