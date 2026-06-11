@@ -2,6 +2,11 @@
 // ToS checkbox eklendi — R-3 kapsamı
 // accepted_tos + tos_accepted_at Supabase'e yazılıyor
 // ADAPTERv1 Session 8
+//
+// FIX (Session 34):
+//   Risk 1 — update() → upsert() (race condition: trigger henüz satırı yazmamış olabilir)
+//   Risk 2 — upsert id alanını açıkça geçiyor (trigger yoksa bile satır oluşur)
+//   Risk 3 — ToS upsert hatası artık loglanıyor (non-blocking, ama görünür)
 
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
@@ -9,7 +14,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuthStore } from "../stores/authStore";
 
 export default function RegisterScreen() {
-  const navigate  = useNavigate();
+  const navigate   = useNavigate();
   const setSession = useAuthStore((s) => s.setSession);
 
   const [email,       setEmail]       = useState("");
@@ -25,7 +30,7 @@ export default function RegisterScreen() {
     pass &&
     pass === pass2 &&
     pass.length >= 6 &&
-    tosAccepted;  // ← ToS kabul zorunlu
+    tosAccepted;
 
   const handleRegister = async () => {
     if (!valid) return;
@@ -38,17 +43,28 @@ export default function RegisterScreen() {
       if (err) throw err;
 
       // ToS kabul kaydı — user_profiles'a yaz
-      // signUp'tan dönen user.id kullanılır (session yoksa da id gelir)
+      // RISK 1 + 2 FIX: update() → upsert()
+      //   - signUp trigger async; satır henüz olmayabilir → update() 0 row döner, bazı config'lerde hata fırlatır
+      //   - upsert: satır varsa günceller, yoksa oluşturur → her durumda güvenli
+      //   - id sütunu açıkça geçilmeli ki Supabase hangi satırı upsert edeceğini bilsin
       const userId = data.user?.id;
       if (userId) {
-        await supabase
+        const { error: tosErr } = await supabase
           .from("user_profiles")
-          .update({
-            accepted_tos:    true,
-            tos_accepted_at: new Date().toISOString(),
-          })
-          .eq("id", userId);
-        // Hata loglama — kayıt akışını bloklamaz
+          .upsert(
+            {
+              id:              userId,        // PK — upsert için zorunlu
+              accepted_tos:    true,
+              tos_accepted_at: new Date().toISOString(),
+            },
+            { onConflict: "id" }             // çakışma sütunu explicit
+          );
+
+        // RISK 3 FIX: hata artık loglanıyor
+        // Non-blocking — kayıt akışını durdurmaz ama sessizce geçmez
+        if (tosErr) {
+          console.error("[Register] ToS upsert failed:", tosErr.message, tosErr.code);
+        }
       }
 
       if (data.session) {
