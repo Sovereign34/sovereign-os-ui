@@ -9,7 +9,7 @@
   "services": {
     "engine": { "label": "Sovereign Engine", "desc": "Railwayで稼働中"       },
     "memory": { "label": "Sovereign Memory", "desc": "pgvector + Voyage AI"  },
-    "mcp":    { "label": "MCPサーバー",      "desc": "Claudeブリッジ"         },
+    "mcp":    { "label": "MCPサーバー",      "desc": "Claudeブリッジ", "coming_soon": "近日公開"  },
     "github": { "label": "GitHub",           "desc": "リポジトリ接続"         }
   },
   "github": {
