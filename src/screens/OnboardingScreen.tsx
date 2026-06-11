@@ -1,12 +1,16 @@
 // src/screens/OnboardingScreen.tsx
+// Amaç:    Yeni kullanıcı onboarding akışı — proje kurulumu + generation
+// Bağlı:   /api/project/create · authStore.tier · /junior/fiyatlandirma
+// Karar:   Session 42 — Free tier proje adımı kaldırıldı; pricing'e yönlendirme eklendi
+// Dokunma: Tier akışı değişirse FREE_UPGRADE_PATH sabiti güncellenmeli
 // Session 12 — Onboarding akışı: master plan girişi + /api/project/create bağlantısı
 // TB-6 — Session 37: goToApp() localStorage'a active_project_id + active_project_name yazar
 // Session 39: Step 3 artık doğrudan Chat'e değil GenerationProgress'e yönlendirir.
-//   GenerationProgress onComplete(firstDecision) çağırınca Chat'e geçilir.
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../junior/hooks/useAuth";
+import { useAuthStore } from "../stores/authStore";
 import GenerationProgress from "../junior/screens/GenerationProgress";
 
 // ── Tipler ──────────────────────────────────────────────────────────────
@@ -18,6 +22,9 @@ interface CreateProjectResponse {
 // ── Sabitler ────────────────────────────────────────────────────────────
 // VITE_ENGINE_URL — apiClient.ts ile aynı pattern (VITE_API_URL kaldırıldı)
 const API_BASE = import.meta.env.VITE_ENGINE_URL ?? "";
+
+// Free tier upgrade yönlendirme yolu
+const FREE_UPGRADE_PATH = "/junior/fiyatlandirma";
 
 const T = {
   bg:           "#0F0F0F",
@@ -48,6 +55,7 @@ function StepDot({ active, done }: { active: boolean; done: boolean }) {
 export default function OnboardingScreen() {
   const navigate           = useNavigate();
   const { user, session }  = useAuth() as { user: any; session: any };
+  const { tier }           = useAuthStore();
 
   const [step, setStep]               = useState<1 | 2 | 3>(1);
   const [projectName, setProjectName] = useState("");
@@ -129,6 +137,87 @@ export default function OnboardingScreen() {
         projectName={projectName.trim()}
         onComplete={handleGenerationComplete}
       />
+    );
+  }
+
+  // ── Free tier: proje oluşturma yok → upgrade ekranı ────────────────
+  if (tier === "free") {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: T.bg,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
+        fontFamily: "'Inter',system-ui,sans-serif",
+      }}>
+        <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
+
+          {/* Logo */}
+          <div style={{ marginBottom: 32 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18, color: "#fff", fontWeight: 800,
+              fontFamily: "'Syne',sans-serif",
+              boxShadow: `0 4px 20px ${T.accent}30`,
+              marginBottom: 12,
+            }}>S</div>
+            <div style={{
+              fontSize: 20, fontWeight: 800, color: T.textPrimary,
+              fontFamily: "'Syne',sans-serif", letterSpacing: "-0.03em",
+            }}>
+              sovereign<span style={{ color: T.accent }}>.</span>os
+            </div>
+          </div>
+
+          {/* Mesaj */}
+          <div style={{
+            background: "#1A1A1A",
+            border: "1px solid #2A2A2A",
+            borderRadius: 14,
+            padding: "32px 24px",
+            marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 16 }}>📁</div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>
+              Proje oluşturmak için Solo gerekiyor
+            </h2>
+            <p style={{ fontSize: 13, color: T.textSecond, lineHeight: 1.6, marginBottom: 24 }}>
+              Free planda proje oluşturma mevcut değil.
+              Solo veya üzeri plana geçerek projelerini yönetebilir,
+              AI destekli karar motorunu tam kapasite kullanabilirsin.
+            </p>
+            <button
+              onClick={() => navigate(FREE_UPGRADE_PATH)}
+              style={{
+                width: "100%", height: 46, borderRadius: 10, border: "none",
+                background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`,
+                color: "#fff", fontSize: 14, fontWeight: 600,
+                cursor: "pointer", fontFamily: "'Inter',system-ui,sans-serif",
+                boxShadow: `0 4px 20px ${T.accent}28`,
+              }}
+            >
+              Solo'ya Geç →
+            </button>
+          </div>
+
+          {/* Atla */}
+          <button
+            onClick={() => navigate("/junior")}
+            style={{
+              background: "transparent", border: "none",
+              color: T.textTertiary, cursor: "pointer",
+              fontSize: 12, fontFamily: "'JetBrains Mono',monospace",
+            }}
+          >
+            Şimdi değil, demo chat'e geç →
+          </button>
+
+        </div>
+      </div>
     );
   }
 
