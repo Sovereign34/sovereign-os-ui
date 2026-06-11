@@ -1,5 +1,6 @@
 // ChatScreen.jsx
 // Amaç:    Chat UI render'ı — mesaj listesi, input, modal'lar, proje drawer
+// Karar:   Session 42 — ProjectDrawer'a Yeni Proje butonu eklendi → /junior/onboarding
 // Bağlı:   useChatActions hook, useAuth, useSovereignMemory, /api/ai/session/close
 // Karar:   Karar #45 (system prompt engine'e taşındı), Session 22 (useChatActions refactor)
 //          Karar #53 (chat içi proje drawer), TB-6 Session 37 (project_id bağlantısı),
@@ -26,6 +27,7 @@
 import { apiCall }  from "../../lib/apiClient";
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { T } from "../../tokens";
 import { useAuth } from "../hooks/useAuth";
 import { useChatActions } from "../hooks/useChatActions";
@@ -82,6 +84,7 @@ const useActiveProject = () => {
 // Edge: drawer dışına tıklanınca kapanır (overlay)
 function ProjectDrawer({ activeProject, onSelect, onClose, userId, sessionToken }) {
   const API_BASE   = import.meta.env.VITE_ENGINE_URL ?? "";
+  const navigate   = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
@@ -145,16 +148,34 @@ function ProjectDrawer({ activeProject, onSelect, onClose, userId, sessionToken 
           }}>
             Projeler
           </span>
-          <button
-            onClick={onClose}
-            style={{
-              background: "transparent", border: "none",
-              color: T.textTertiary, cursor: "pointer",
-              fontSize: 14, padding: "2px 6px", borderRadius: 4,
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              onClick={() => { onClose(); navigate("/junior/onboarding"); }}
+              title="Yeni proje oluştur"
+              style={{
+                background: "rgba(124,58,237,0.12)",
+                border: "1px solid rgba(124,58,237,0.3)",
+                color: "#9061F9",
+                cursor: "pointer",
+                fontSize: 11, fontWeight: 700,
+                padding: "3px 10px", borderRadius: 6,
+                fontFamily: "'JetBrains Mono',monospace",
+                letterSpacing: "0.04em",
+              }}
+            >
+              + Yeni
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                background: "transparent", border: "none",
+                color: T.textTertiary, cursor: "pointer",
+                fontSize: 14, padding: "2px 6px", borderRadius: 4,
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Liste */}
@@ -189,9 +210,13 @@ function ProjectDrawer({ activeProject, onSelect, onClose, userId, sessionToken 
               fontSize: 11, color: T.textTertiary,
               fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.7,
             }}>
-              Henüz proje yok.<br />
-              Yeni proje oluşturmak için<br />
-              onboarding'e git.
+              Henüz proje yok.<br /><br />
+              <span
+                onClick={() => { onClose(); navigate("/junior/onboarding"); }}
+                style={{ color: "#9061F9", cursor: "pointer", textDecoration: "underline" }}
+              >
+                + Yeni proje oluştur
+              </span>
             </div>
           )}
 
