@@ -23,18 +23,18 @@
       "period": "/ay",
       "cta": "Mevcut Plan",
       "features": [
-        "Ayda 50 karar",
-        "1 proje",
+        "Ayda 30 demo karar",
+        "Proje oluşturma yok",
         "Topluluk desteği"
       ]
     },
     "solo": {
       "name": "Solo",
-      "price": "$29",
+      "price": "$49",
       "period": "/ay",
       "cta": "Solo'ya Geç →",
       "features": [
-        "Ayda 500 karar",
+        "Ayda 300 karar",
         "3 proje",
         "Sovereign Memory",
         "MCP Bridge",
@@ -43,25 +43,24 @@
     },
     "pro": {
       "name": "Pro",
-      "price": "$79",
+      "price": "$99",
       "period": "/ay",
       "cta": "Pro'ya Geç →",
       "features": [
-        "Ayda 800 karar",
-        "2 kişi",
-        "Sınırsız proje",
+        "Ayda 1000 karar",
+        "10 proje",
         "Denetim exportu",
         "Öncelikli destek"
       ]
     },
     "team": {
       "name": "Team",
-      "price": "$199",
+      "price": "$249",
       "period": "/ay",
       "cta": "Team'e Geç →",
       "features": [
-        "Ayda 2000 karar",
-        "10 kişi",
+        "Ayda 5000 karar",
+        "20 proje",
         "SSO",
         "SLA garantisi",
         "Özel destek"
