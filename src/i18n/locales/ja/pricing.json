@@ -18,32 +18,32 @@
       "price":    "$0",
       "period":   "/月",
       "cta":      "現在のプラン",
-      "features": ["月50回の判断", "1プロジェクト", "コミュニティサポート"]
+      "features": ["月30回のデモ判断", "プロジェクト作成不可", "コミュニティサポート"]
     },
     "solo": {
       "name":     "Solo",
-      "price":    "$29",
+      "price":    "$49",
       "period":   "/月",
       "cta":      "Soloを始める →",
-      "features": ["月500回の判断", "3プロジェクト", "Sovereign Memory", "MCPブリッジ", "GitHub連携"]
+      "features": ["月300回の判断", "3プロジェクト", "Sovereign Memory", "MCPブリッジ", "GitHub連携"]
     },
     "pro": {
       "name":     "Pro",
-      "price":    "$79",
+      "price":    "$99",
       "period":   "/月",
       "cta":      "Proを始める →",
-      "features": ["月800回の判断", "2シート", "無制限プロジェクト", "監査エクスポート", "優先サポート"]
+      "features": ["月1000回の判断", "10プロジェクト", "監査エクスポート", "優先サポート"]
     },
     "team": {
       "name":     "Team",
-      "price":    "$199",
+      "price":    "$249",
       "period":   "/月",
       "cta":      "Teamを始める →",
-      "features": ["月2000回の判断", "10シート", "SSO", "SLA保証", "専任サポート"]
+      "features": ["月5000回の判断", "20プロジェクト", "SSO", "SLA保証", "専任サポート"]
     }
   },
-  "manage":      "サブスクリプション管理 (Dodoポータル) →",
-  "view_plans":  "プランを見る →",
-  "portal_error":"ポータルを開けませんでした。",
-  "footer":      "料金はすべてUSD表示。\nいつでもキャンセル可能。"
+  "manage":       "サブスクリプション管理 (Dodoポータル) →",
+  "view_plans":   "プランを見る →",
+  "portal_error": "ポータルを開けませんでした。",
+  "footer":       "料金はすべてUSD表示。\nいつでもキャンセル可能。"
 }
