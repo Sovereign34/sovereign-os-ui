@@ -9,7 +9,7 @@
   "services": {
     "engine": { "label": "Sovereign Engine", "desc": "Railway'de çalışıyor" },
     "memory": { "label": "Sovereign Memory", "desc": "pgvector + Voyage AI"  },
-    "mcp":    { "label": "MCP Sunucusu",     "desc": "Claude köprüsü"        },
+    "mcp":    { "label": "MCP Sunucusu",     "desc": "Claude köprüsü", "coming_soon": "Yakında"  },
     "github": { "label": "GitHub",           "desc": "Repo bağlantısı"       }
   },
   "github": {
