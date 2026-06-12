@@ -57,7 +57,7 @@ export default function PricingScreen() {
     try {
       const data = await apiCall("/api/billing/checkout", {
         method: "POST",
-        body: JSON.stringify({ tier, userEmail }),
+        body: JSON.stringify({ tier }),
       });
       window.location.href = data.checkoutUrl;
     } catch (e: any) {
@@ -70,7 +70,7 @@ export default function PricingScreen() {
   const handlePortal = async () => {
     try {
       const data = await apiCall(
-        `/api/billing/portal?email=${encodeURIComponent(userEmail)}`,
+        `/api/billing/portal`,
         { method: "GET" }
       );
       window.location.href = data.portalUrl;
