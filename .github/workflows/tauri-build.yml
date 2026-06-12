@@ -50,7 +50,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         with:
-          tagName: ${{ github.ref_name }}
+          tagName: app-v__VERSION__
+          releaseName: "Sovereign OS v__VERSION__"
           releaseBody: |
             Sovereign Engine OS desktop release.
             Windows (.msi / .exe) ve macOS (.dmg) installer asagidadir.
