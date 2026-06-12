@@ -6,43 +6,14 @@ on:
       - 'v*'
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create.outputs.id }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create Release
-        id: create
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "Sovereign OS ${{ github.ref_name }}"
-          body: |
-            Sovereign Engine OS desktop release.
-            Windows (.msi / .exe) ve macOS (.dmg) installer asagidadir.
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-
   build-tauri:
-    needs: create-release
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-          - platform: macos-latest
-            target: x86_64-apple-darwin
           - platform: macos-latest
             target: aarch64-apple-darwin
 
@@ -51,13 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── Node ──────────────────────────────────────────────────────────────
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      # ── Rust ──────────────────────────────────────────────────────────────
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -66,29 +35,9 @@ jobs:
         with:
           workspaces: ./src-tauri -> target
 
-      # ── WebView2 (Windows only) ───────────────────────────────────────────
-      # embedBootstrapper tauri.conf.json'da aktif olduğu için installer
-      # WebView2'yi otomatik gömer. Aşağıdaki adım ek güvence sağlar:
-      # build makinesinde WebView2 yoksa kurulumu beklemeden devam eder.
-      - name: Install WebView2 (Windows)
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        run: |
-          $webview2 = Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
-          if (-not $webview2) {
-            Write-Host "WebView2 bulunamadi, kuruluyor..."
-            Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:TEMP\MicrosoftEdgeWebview2Setup.exe"
-            Start-Process "$env:TEMP\MicrosoftEdgeWebview2Setup.exe" -ArgumentList "/silent /install" -Wait
-            Write-Host "WebView2 kuruldu."
-          } else {
-            Write-Host "WebView2 zaten mevcut: $($webview2.pv)"
-          }
-
-      # ── Dependencies ─────────────────────────────────────────────────────
       - name: Install dependencies
         run: npm ci
 
-      # ── Frontend build ───────────────────────────────────────────────────
       - name: Build frontend
         run: npm run build
         env:
@@ -96,17 +45,16 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      # ── Tauri build ──────────────────────────────────────────────────────
       - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          VITE_ENGINE_URL: ${{ secrets.VITE_ENGINE_URL }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # Tauri 2.x updater imzası gerekliyse buraya ekle:
-          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          releaseName: "Sovereign OS ${{ github.ref_name }}"
+          releaseBody: |
+            Sovereign Engine OS desktop release.
+            Windows (.msi / .exe) ve macOS (.dmg) installer asagidadir.
+          releaseDraft: false
+          prerelease: false
           args: --target ${{ matrix.target }}
