@@ -884,9 +884,12 @@ function MessageBubble({ msg, activeProject, authToken, onPushSuccess, onPushErr
             }}>
               RISK {msg.risk}/10
             </div>
-            <span style={{ fontSize: 9, color: T.textTertiary, fontFamily: "'JetBrains Mono',monospace" }}>
-              {t("risk.intercepted")}
-            </span>
+            {/* Fix #4: "intercepted" etiketi sadece gerçek blokajlarda gösterilir */}
+            {(msg.verdict === "DENY" || msg.verdict === "ASK_HUMAN") && (
+              <span style={{ fontSize: 9, color: T.textTertiary, fontFamily: "'JetBrains Mono',monospace" }}>
+                {t("risk.intercepted")}
+              </span>
+            )}
           </div>
         )}
         {!isUser && msg.verdict && (
