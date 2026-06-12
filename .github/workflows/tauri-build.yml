@@ -45,18 +45,13 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Set release name
-        id: release_meta
-        shell: bash
-        run: echo "name=Sovereign OS ${{ github.ref_name }}" >> $GITHUB_OUTPUT
-
       - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: ${{ steps.release_meta.outputs.name }}
+          releaseName: "Sovereign OS __VERSION__"
           releaseBody: |
             Sovereign Engine OS desktop release.
             Windows (.msi / .exe) ve macOS (.dmg) installer asagidadir.
