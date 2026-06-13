@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { supabase } from "../../../lib/supabaseClient";
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL;
 
@@ -66,11 +67,11 @@ export default function Baglan() {
 
     // SEC-01: token localStorage'da yok — backend /status endpoint'inden kontrol et
     try {
-      const session = supabase?.auth?.session?.() // mevcut auth session
-      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
       const statusRes = await fetch(`${ENGINE_URL}/api/user/github-token/status`, {
         headers: authHeader ? { Authorization: authHeader } : {},
-      })
+      });
       if (statusRes.ok) {
         const { connected } = await statusRes.json()
         setGithubToken(connected)
@@ -106,8 +107,7 @@ export default function Baglan() {
       }
 
       // Adım 2: SEC-01 — token localStorage'a yazılmıyor, backend'e gönderiliyor
-      const { data: { session } } = await import("../../../lib/supabaseClient.js")
-        .then(m => m.supabase.auth.getSession());
+      const { data: { session } } = await supabase.auth.getSession();
       const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
 
       if (!authHeader) {
@@ -150,8 +150,7 @@ export default function Baglan() {
 
   const removeGithubToken = async () => {
     try {
-      const { data: { session } } = await import("../../../lib/supabaseClient.js")
-        .then(m => m.supabase.auth.getSession());
+      const { data: { session } } = await supabase.auth.getSession();
       const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
       if (authHeader) {
         await fetch(`${ENGINE_URL}/api/user/github-token`, {
