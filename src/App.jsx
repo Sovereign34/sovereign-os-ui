@@ -26,6 +26,7 @@ import { StatusBar } from "./components/StatusBar";
 import { useJuniorStore } from "./junior/stores/juniorStore";
 import KararAkisiPanel from "./junior/components/KararAkisiPanel";
 import { MemoryPanel } from "./memory/MemoryPanel";
+import { IncidentReportButton } from "./components/IncidentReportButton"; // INCIDENT-01
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL ?? "";
 
@@ -428,6 +429,8 @@ export default function SovereignApp() {
         </nav>
 
       </div>
+
+      <IncidentReportButton /> {/* INCIDENT-01 */}
     </>
   );
 }
