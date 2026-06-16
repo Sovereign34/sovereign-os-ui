@@ -626,7 +626,33 @@ function Toast({ message, type = "error", onClose }) {
 }
 
 // ── NAV ─────────────────────────────────────────────────────────
-const DOWNLOAD_URL = "https://github.com/fourmeme21/sovereign-os-ui/releases/download/v0.6.6/sovereign-os_0.6.6_x64-setup.exe";
+const APP_VERSION = "0.6.6";
+const RELEASES_BASE = `https://github.com/fourmeme21/sovereign-os-ui/releases/download/v${APP_VERSION}`;
+
+function getDownloadInfo() {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+  if (/Macintosh|Mac OS X/.test(ua)) {
+    // Apple Silicon vs Intel can't be reliably told apart from the UA string
+    // (Rosetta reports as Intel). Default to Apple Silicon — the majority of
+    // active Macs — and offer the Intel build as a secondary link.
+    return {
+      url: `${RELEASES_BASE}/sovereign-os_${APP_VERSION}_aarch64.dmg`,
+      label: "Mac",
+      secondaryUrl: `${RELEASES_BASE}/sovereign-os_${APP_VERSION}_x64.dmg`,
+      secondaryLabel: "Intel Mac",
+    };
+  }
+  if (/Windows/.test(ua)) {
+    return {
+      url: `${RELEASES_BASE}/sovereign-os_${APP_VERSION}_x64-setup.exe`,
+      label: "Windows",
+    };
+  }
+  return {
+    url: `https://github.com/fourmeme21/sovereign-os-ui/releases/tag/v${APP_VERSION}`,
+    label: "Desktop App",
+  };
+}
 
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -669,13 +695,18 @@ function Nav() {
         </div>
 
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <a href={DOWNLOAD_URL} className="nav-download" style={{ textDecoration:"none" }} aria-label="Download desktop app version 0.6.6">
-            <button className="btn-ghost" style={{ padding:"9px 16px", fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
-              <span style={{ fontSize:13 }} aria-hidden="true">⬇</span>
-              Desktop App
-              <span style={{ fontSize:9, opacity:.55, fontFamily:"'JetBrains Mono',monospace", background:T.bgElevated, padding:"2px 5px", borderRadius:4 }}>v0.6.6</span>
-            </button>
-          </a>
+          {(() => {
+            const dl = getDownloadInfo();
+            return (
+              <a href={dl.url} className="nav-download" style={{ textDecoration:"none" }} aria-label={`Download desktop app for ${dl.label}, version ${APP_VERSION}`}>
+                <button className="btn-ghost" style={{ padding:"9px 16px", fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ fontSize:13 }} aria-hidden="true">⬇</span>
+                  {dl.label}
+                  <span style={{ fontSize:9, opacity:.55, fontFamily:"'JetBrains Mono',monospace", background:T.bgElevated, padding:"2px 5px", borderRadius:4 }}>v{APP_VERSION}</span>
+                </button>
+              </a>
+            );
+          })()}
           <a href="/junior" style={{ textDecoration:"none" }} aria-label="Open Sovereign Engine web app">
             <button className="btn-primary" style={{ padding:"9px 18px", fontSize:13, animation:"none" }}>
               Open App →
@@ -737,13 +768,25 @@ function HeroSection() {
               your project. Persistent memory. Zero context loss. Full audit chain.
             </p>
 
-            <div style={{ display:"flex", gap:12, flexWrap:"wrap", animation:"fade-up .7s .45s both" }}>
+            <div style={{ display:"flex", gap:12, flexWrap:"wrap", animation:"fade-up .7s .45s both", alignItems:"center" }}>
               <a href="#waitlist" style={{ textDecoration:"none" }}>
                 <button className="btn-primary">Create Your Project Brain →</button>
               </a>
-              <a href={DOWNLOAD_URL} style={{ textDecoration:"none" }}>
-                <button className="btn-ghost">Download Desktop App</button>
-              </a>
+              {(() => {
+                const dl = getDownloadInfo();
+                return (
+                  <>
+                    <a href={dl.url} style={{ textDecoration:"none" }}>
+                      <button className="btn-ghost">Download for {dl.label}</button>
+                    </a>
+                    {dl.secondaryUrl && (
+                      <a href={dl.secondaryUrl} style={{ fontSize:12, color:T.textSecondary }}>
+                        {dl.secondaryLabel}?
+                      </a>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             <LiveStats />
