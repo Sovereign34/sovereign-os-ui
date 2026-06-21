@@ -627,7 +627,7 @@ function Toast({ message, type = "error", onClose }) {
 
 // ── NAV ─────────────────────────────────────────────────────────
 const APP_VERSION = "0.6.6";
-const RELEASES_BASE = `https://github.com/fourmeme21/sovereign-os-ui/releases/download/v${APP_VERSION}`;
+const RELEASES_BASE = `https://github.com/Sovereign34/sovereign-os-ui/releases/download/v${APP_VERSION}`;
 
 function getDownloadInfo() {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
@@ -649,7 +649,7 @@ function getDownloadInfo() {
     };
   }
   return {
-    url: `https://github.com/fourmeme21/sovereign-os-ui/releases/tag/v${APP_VERSION}`,
+    url: `https://github.com/Sovereign34/sovereign-os-ui/releases/tag/v${APP_VERSION}`,
     label: "Desktop App",
   };
 }
@@ -707,7 +707,7 @@ function Nav() {
               </a>
             );
           })()}
-          <a href="/junior" style={{ textDecoration:"none" }} aria-label="Open Sovereign Engine web app">
+          <a href="#/junior" style={{ textDecoration:"none" }} aria-label="Open Sovereign Engine web app">
             <button className="btn-primary" style={{ padding:"9px 18px", fontSize:13, animation:"none" }}>
               Open App →
             </button>

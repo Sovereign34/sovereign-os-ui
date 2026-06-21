@@ -10,7 +10,7 @@ import "./i18n";  // ← EKLE
 initAuthListener(registerSession);
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-const Router = isTauri ? HashRouter : BrowserRouter;
+const Router = HashRouter;
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
