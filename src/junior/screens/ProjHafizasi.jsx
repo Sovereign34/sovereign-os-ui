@@ -1,73 +1,39 @@
-import { useState, useEffect } from "react";
-import { apiCall } from "../../lib/apiClient";
-import { supabase } from "../../lib/supabaseClient";
-import { ensureProject } from "../../utils/ensureProject.js";
-
-const DEFAULT_PROJECT = "my-saas";
+import { useState } from "react";
+import { useSovereignMemory } from "../../memory/useSovereignMemory";
 
 export default function ProjHafizasi() {
-  const [projectId, setProjectId]     = useState(null);
+  const { hotSessions, searchResults, searchSessions, clearSearch, addSession } = useSovereignMemory();
+
   const [fileName, setFileName]       = useState("");
   const [content, setContent]         = useState("");
   const [query, setQuery]             = useState("");
-  const [queryResult, setQueryResult] = useState([]);
-  const [uploads, setUploads]         = useState([]);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
 
-  useEffect(() => {
-    ensureProject(supabase, DEFAULT_PROJECT)
-      .then(setProjectId)
-      .catch((e) => setError(e.message));
-  }, []);
-
   const handleUpload = async () => {
-    if (!fileName || !content || !projectId) return;
+    if (!fileName || !content) return;
     setLoading(true);
     setError("");
     try {
-      const data = await apiCall("/memory/upload", {
-        method: "POST",
-        body: JSON.stringify({
-          project_id: projectId,
-          file_name:  fileName,
-          content,
-        }),
-      });
-      setUploads(prev => [
-        { file_name: fileName, chunks_saved: data.chunks_saved ?? data.chunks_created ?? 1 },
-        ...prev,
-      ]);
+      const nextSessionNum = (hotSessions[0]?.meta.session_num ?? 0) + 1;
+      await addSession(nextSessionNum, "manual_upload", fileName, content);
       setFileName("");
       setContent("");
     } catch (e) {
-      // feature_locked → Phase E'ye kadar göster; quota → apiCall yönlendiriyor
-      if (!e.message.startsWith("feature_locked") && e.message !== "quota_exceeded") {
-        setError(e.message);
-      }
+      setError(e.message ?? "Hafızaya eklenemedi");
     } finally {
       setLoading(false);
     }
   };
 
   const handleQuery = async () => {
-    if (!query || !projectId) return;
+    if (!query) return;
     setLoading(true);
     setError("");
     try {
-      const data = await apiCall("/memory/query", {
-        method: "POST",
-        body: JSON.stringify({
-          project_id: projectId,
-          query,
-          top_k: 3,
-        }),
-      });
-      setQueryResult(data.results || []);
+      await searchSessions(query);
     } catch (e) {
-      if (!e.message.startsWith("feature_locked") && e.message !== "quota_exceeded") {
-        setError(e.message);
-      }
+      setError(e.message ?? "Sorgu başarısız");
     } finally {
       setLoading(false);
     }
@@ -83,7 +49,6 @@ export default function ProjHafizasi() {
         <div className="hafiza-error">⚠ {error}</div>
       )}
 
-      {/* Upload */}
       <section className="hafiza-section">
         <h3 className="section-title">Doküman Ekle</h3>
         <input
@@ -102,24 +67,23 @@ export default function ProjHafizasi() {
         <button
           className="btn-primary"
           onClick={handleUpload}
-          disabled={loading || !fileName || !content || !projectId}
+          disabled={loading || !fileName || !content}
         >
           {loading ? "Yükleniyor..." : "+ Hafızaya Ekle"}
         </button>
 
-        {uploads.length > 0 && (
+        {hotSessions.length > 0 && (
           <div className="upload-list">
-            {uploads.slice(0, 5).map((u, i) => (
-              <div key={i} className="upload-row">
-                <span>📄 {u.file_name}</span>
-                <span className="upload-count">{u.chunks_saved} bölüm</span>
+            {hotSessions.slice(0, 5).map((s) => (
+              <div key={s.meta.id} className="upload-row">
+                <span>📄 {s.meta.focus}</span>
+                <span className="upload-count">{s.meta.synced ? "senkronize" : "lokal"}</span>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      {/* Query */}
       <section className="hafiza-section">
         <h3 className="section-title">Hafızayı Sorgula</h3>
         <div className="query-row">
@@ -127,25 +91,25 @@ export default function ProjHafizasi() {
             className="hafiza-input"
             placeholder="Ne öğrenmek istiyorsun?"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => {
+              setQuery(e.target.value);
+              if (!e.target.value) clearSearch();
+            }}
             onKeyDown={e => e.key === "Enter" && handleQuery()}
           />
-          <button className="btn-primary" onClick={handleQuery} disabled={loading || !query || !projectId}>
+          <button className="btn-primary" onClick={handleQuery} disabled={loading || !query}>
             Sor
           </button>
         </div>
 
-        {queryResult.length > 0 && (
+        {searchResults.length > 0 && (
           <div className="query-results">
-            {queryResult.map((r, i) => (
-              <div key={i} className="query-result-row">
+            {searchResults.map((s) => (
+              <div key={s.meta.id} className="query-result-row">
                 <div className="result-source">
-                  📄 {r.source_file || r.source_path || "Bilinmiyor"}
-                  <span className="result-score">
-                    %{Math.round((r.score ?? r.similarity ?? 0) * 100)}
-                  </span>
+                  📄 {s.meta.focus}
                 </div>
-                <p className="result-content">{r.content}</p>
+                <p className="result-content">{s.content}</p>
               </div>
             ))}
           </div>
@@ -153,5 +117,4 @@ export default function ProjHafizasi() {
       </section>
     </div>
   );
-          }
-         
+}
