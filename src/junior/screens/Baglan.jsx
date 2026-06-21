@@ -65,7 +65,7 @@ export default function Baglan() {
           "Content-Type": "application/json",
           ...(authHeader ? { Authorization: authHeader } : {}),
         },
-        body: JSON.stringify({ project_id: "health-check", query: "test", top_k: 1 }),
+        body: JSON.stringify({ project_id: "00000000-0000-0000-0000-000000000000", query: "test", top_k: 1 }),
       });
       setHealth((h) => ({ ...h, memory: res.ok ? "ok" : "error" }));
     } catch { setHealth((h) => ({ ...h, memory: "error" })); }
@@ -312,4 +312,5 @@ export default function Baglan() {
       </div>
     </div>
   );
-}
+    }
+    
