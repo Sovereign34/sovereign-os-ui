@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { supabase } from "../../lib/supabaseClient";
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL;
 
@@ -34,8 +35,9 @@ export default function Baglan() {
     engine: "checking", github: "checking", memory: "checking",
   });
 
-  const [githubToken,     setGithubToken]     = useState(() => localStorage.getItem("github_token") ?? "");
-  const [githubRepo,      setGithubRepo]      = useState(() => localStorage.getItem("github_repo")  ?? "");
+  // SEC-01: token artık localStorage'da tutulmuyor — bağlantı durumu backend'den okunuyor
+  const [githubToken,     setGithubToken]     = useState(false);   // true = bağlı
+  const [githubRepo,      setGithubRepo]      = useState(() => localStorage.getItem("github_repo") ?? "");
   const [githubInput,     setGithubInput]     = useState("");
   const [githubRepoInput, setGithubRepoInput] = useState("");
   const [githubFormOpen,  setGithubFormOpen]  = useState(false);
@@ -63,14 +65,22 @@ export default function Baglan() {
       setHealth((h) => ({ ...h, memory: res.ok ? "ok" : "error" }));
     } catch { setHealth((h) => ({ ...h, memory: "error" })); }
 
-    const token = localStorage.getItem("github_token");
-    const repo  = localStorage.getItem("github_repo");
-    if (!token) {
-      setHealth((h) => ({ ...h, github: "error" }));
-    } else {
-      const valid = await verifyGithubToken(token);
-      setHealth((h) => ({ ...h, github: valid && !!repo ? "ok" : "error" }));
-    }
+    // SEC-01: token localStorage'da yok — backend /status endpoint'inden kontrol et
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
+      const statusRes = await fetch(`${ENGINE_URL}/api/user/github-token/status`, {
+        headers: authHeader ? { Authorization: authHeader } : {},
+      });
+      if (statusRes.ok) {
+        const { connected } = await statusRes.json()
+        setGithubToken(connected)
+        const repo = localStorage.getItem("github_repo")
+        setHealth((h) => ({ ...h, github: connected && !!repo ? "ok" : "error" }))
+      } else {
+        setHealth((h) => ({ ...h, github: "error" }))
+      }
+    } catch { setHealth((h) => ({ ...h, github: "error" })) }
   };
 
   const saveGithubSettings = async () => {
@@ -86,33 +96,73 @@ export default function Baglan() {
     setRepoError("");
     setTokenError("");
     setGithubVerifying(true);
-    const valid = await verifyGithubToken(trimmedToken);
-    setGithubVerifying(false);
 
-    if (!valid) {
-      setTokenError(t("github.token_invalid"));
-      return;
+    try {
+      // Adım 1: Token'ı önce GitHub'da doğrula
+      const valid = await verifyGithubToken(trimmedToken);
+      if (!valid) {
+        setTokenError(t("github.token_invalid"));
+        setGithubVerifying(false);
+        return;
+      }
+
+      // Adım 2: SEC-01 — token localStorage'a yazılmıyor, backend'e gönderiliyor
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
+
+      if (!authHeader) {
+        setTokenError("Oturum bulunamadı. Lütfen yeniden giriş yapın.");
+        setGithubVerifying(false);
+        return;
+      }
+
+      const saveRes = await fetch(`${ENGINE_URL}/api/user/github-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({ token: trimmedToken }),
+      });
+
+      if (!saveRes.ok) {
+        setTokenError(t("github.token_invalid"));
+        setGithubVerifying(false);
+        return;
+      }
+
+      // Adım 3: repo localStorage'da kalabilir — hassas veri değil
+      if (trimmedRepo) {
+        localStorage.setItem("github_repo", trimmedRepo);
+        setGithubRepo(trimmedRepo);
+      }
+
+      setGithubToken(true); // bağlı
+      setHealth((h) => ({ ...h, github: "ok" }));
+      setGithubInput("");
+      setGithubRepoInput("");
+      setGithubFormOpen(false);
+      setGithubSaved(true);
+      setTimeout(() => setGithubSaved(false), 2500);
+    } catch {
+      setTokenError("Bağlantı hatası. Lütfen tekrar deneyin.");
+    } finally {
+      setGithubVerifying(false);
     }
-
-    localStorage.setItem("github_token", trimmedToken);
-    setGithubToken(trimmedToken);
-    if (trimmedRepo) {
-      localStorage.setItem("github_repo", trimmedRepo);
-      setGithubRepo(trimmedRepo);
-    }
-
-    setHealth((h) => ({ ...h, github: "ok" }));
-    setGithubInput("");
-    setGithubRepoInput("");
-    setGithubFormOpen(false);
-    setGithubSaved(true);
-    setTimeout(() => setGithubSaved(false), 2500);
   };
 
-  const removeGithubToken = () => {
-    localStorage.removeItem("github_token");
+  const removeGithubToken = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
+      if (authHeader) {
+        await fetch(`${ENGINE_URL}/api/user/github-token`, {
+          method: "DELETE",
+          headers: { Authorization: authHeader },
+        });
+      }
+    } catch { /* sessiz fail — UI yine de sıfırlanır */ }
+
+    // SEC-01: localStorage'da token zaten yok, repo temizlenir
     localStorage.removeItem("github_repo");
-    setGithubToken("");
+    setGithubToken(false);
     setGithubRepo("");
     setHealth((h) => ({ ...h, github: "error" }));
     setGithubFormOpen(false);

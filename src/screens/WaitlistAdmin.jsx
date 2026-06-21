@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 
 const ENGINE_URL    = import.meta.env.VITE_ENGINE_URL;
-const ADMIN_PASS    = import.meta.env.VITE_ADMIN_PASSWORD ?? "sovereign";
+// SEC-02: fallback kaldırıldı — env yoksa AppRouter zaten route'u kapatır,
+// bu dosyaya hiç ulaşılmaz. Yine de boş string ile güvenli taraf.
+const ADMIN_PASS    = import.meta.env.VITE_ADMIN_PASSWORD ?? "";
 const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
 

@@ -2,15 +2,15 @@
 // Amaç:    GitHub commit + dosya okuma + manifest SHA güncelleme
 // Bağlı:   ENGINE_URL/github/commit, /github/file, /api/project/:id/manifest
 // Karar:   Karar #62 (github_manifest JSONB), Karar #63 (token body'de)
+//          SEC-01 — token artık body'de gönderilmiyor; backend server-side çözüyor
 // Dokunma: TB-23 (ChatScreen push butonu), TB-24 (contextInjector fetchFile)
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL
 
 export function useGithubBridge() {
-  const getCredentials = () => ({
-    token: localStorage.getItem('github_token'),
-    repo:  localStorage.getItem('github_repo'),
-  })
+  // SEC-01: token artık localStorage'da tutulmuyor.
+  // repo bilgisi hassas değil — localStorage'da kalmaya devam eder.
+  const getRepo = () => localStorage.getItem('github_repo')
 
   // ── Manifest güncelle ──────────────────────────────────────
   // commitFile() sonrası SHA'yı Supabase'e yazar.
@@ -74,54 +74,68 @@ export function useGithubBridge() {
   }
 
   // ── Dosya commit et ───────────────────────────────────────
-  // commitFile() sonrası SHA'yı manifest'e yazar.
-  // projectId + authToken verilmezse manifest güncellenmez (opsiyonel).
+  // SEC-01: token body'de gönderilmiyor — backend authMiddleware + user_profiles üzerinden çözüyor
+  // GH-01: 401 / 403 / 429 ayrı hata kodlarıyla işleniyor
   const commitFile = async ({ path, content, message, projectId, authToken }) => {
-    const { token, repo } = getCredentials()
-    if (!token || !repo) {
-      throw new Error('GitHub token veya repo eksik. Ayarlar > Bağlan ekranını kontrol et.')
+    const repo = getRepo()
+    if (!repo) {
+      throw new Error('GitHub repo eksik. Ayarlar > Bağlan ekranını kontrol et.')
     }
 
     const res = await fetch(`${ENGINE_URL}/github/commit`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ token, repo, path, content, message }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({ repo, path, content, message }),
     })
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
+      // GH-01: actionable hata mesajları
+      if (res.status === 401 || err.code === 'TOKEN_EXPIRED')
+        throw Object.assign(new Error('GitHub token süresi dolmuş. Lütfen yeniden bağlanın.'), { code: 'TOKEN_EXPIRED' })
+      if (res.status === 403 || res.status === 429 || err.code === 'RATE_LIMITED')
+        throw Object.assign(new Error('GitHub rate limit aşıldı. Birkaç dakika bekleyin.'), { code: 'RATE_LIMITED' })
       throw new Error(err.error || 'Commit başarısız')
     }
 
     const result = await res.json() // { success, sha, url }
 
-    // TB-22: Commit başarılıysa SHA'yı manifest'e yaz
-    // projectId veya authToken yoksa manifest güncellenmez — sessiz geçmez, uyarı loglanır
     if (projectId && authToken) {
       await updateManifest({ projectId, authToken, path, sha: result.sha })
     } else {
       console.warn('[useGithubBridge] commitFile: projectId veya authToken eksik — manifest güncellenmedi.')
     }
 
-    return result // { success, sha, url }
+    return result
   }
 
   // ── Dosya çek ─────────────────────────────────────────────
-  // Token body'de — Railway loglarında görünmez (Karar #63)
-  const fetchFile = async (path) => {
-    const { token, repo } = getCredentials()
-    if (!token || !repo) {
-      throw new Error('GitHub token veya repo eksik.')
+  // SEC-01: token body'de gönderilmiyor — backend server-side çözüyor
+  // GH-01: 401 / 403 / 429 ayrı hata kodlarıyla işleniyor
+  const fetchFile = async (path, authToken) => {
+    const repo = getRepo()
+    if (!repo) {
+      throw new Error('GitHub repo eksik.')
     }
 
     const res = await fetch(`${ENGINE_URL}/github/file`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ token, repo, path }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({ repo, path }),
     })
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
+      if (res.status === 401 || err.code === 'TOKEN_EXPIRED')
+        throw Object.assign(new Error('GitHub token süresi dolmuş. Lütfen yeniden bağlanın.'), { code: 'TOKEN_EXPIRED' })
+      if (res.status === 403 || res.status === 429 || err.code === 'RATE_LIMITED')
+        throw Object.assign(new Error('GitHub rate limit aşıldı. Birkaç dakika bekleyin.'), { code: 'RATE_LIMITED' })
       throw new Error(err.error || 'Dosya çekilemedi')
     }
 

@@ -4,6 +4,7 @@
 // Phase D — fiyatlandirma + odeme-basarili + ayarlar rotaları eklendi
 // Session 12 — /onboarding (AuthGuard) + /sifre-sifirla rotaları eklendi
 // Session 13 — /auth/callback eklendi (magic link iPhone fix)
+// SEC-02   — VITE_ADMIN_PASSWORD zorunlu; tanımsızsa /admin/waitlist kapatılır
 
 import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
@@ -29,7 +30,8 @@ import { useAuthStore }     from "./stores/authStore";
 import { registerSession }  from "./junior/hooks/useAuth";
 import { useNavigate }      from "react-router-dom";
 
-const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD ?? "sovereign";
+// SEC-02: VITE_ADMIN_PASSWORD zorunlu — tanımsızsa route 404 döner, fallback yok
+const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD ?? "";
 
 // -- AUTH CALLBACK (Magic Link iPhone Fix) ---------------------
 function AuthCallbackScreen() {
@@ -215,9 +217,9 @@ export default function AppRouter() {
       <Route
         path="/admin/waitlist"
         element={
-          <AdminGate>
-            <WaitlistAdmin />
-          </AdminGate>
+          !ADMIN_PASS
+            ? <Navigate to="/" replace />   // SEC-02: env set edilmemişse route kapalı
+            : <AdminGate><WaitlistAdmin /></AdminGate>
         }
       />
 
