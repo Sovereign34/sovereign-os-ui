@@ -626,7 +626,7 @@ function Toast({ message, type = "error", onClose }) {
 }
 
 // ── NAV ─────────────────────────────────────────────────────────
-const APP_VERSION = "0.6.6";
+const APP_VERSION = "0.6.8";
 const RELEASES_BASE = `https://github.com/Sovereign34/sovereign-os-ui/releases/download/v${APP_VERSION}`;
 
 function getDownloadInfo() {
