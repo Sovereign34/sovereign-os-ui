@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, HashRouter } from "react-router-dom";
 import AppRouter from "./AppRouter";
 import { initAuthListener } from "./stores/authStore";
 import { registerSession }  from "./junior/hooks/useAuth";
@@ -9,11 +9,14 @@ import "./i18n";  // ← EKLE
 
 initAuthListener(registerSession);
 
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const Router = isTauri ? HashRouter : BrowserRouter;
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <Router>
       <AppRouter />
-    </BrowserRouter>
+    </Router>
   </React.StrictMode>
 );
 
