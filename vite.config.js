@@ -19,7 +19,13 @@ export default defineConfig({
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     rollupOptions: {
-      external: (id) => id.startsWith("@tauri-apps/"),
+      // @tauri-apps/plugin-fs gerçek ES module olarak import ediliyor
+      // (StorageManager.ts) — bare specifier olarak external bırakılırsa
+      // tarayıcı "Failed to resolve module specifier" hatası verir.
+      // Bu yüzden plugin-fs bundle'a dahil edilir; diğer @tauri-apps/*
+      // paketleri externalleştirme davranışı korunur.
+      external: (id) =>
+        id.startsWith("@tauri-apps/") && id !== "@tauri-apps/plugin-fs",
     },
   },
 });
