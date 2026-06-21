@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabaseClient";
+import { useSovereignMemory } from "../../memory/useSovereignMemory";
 
 const ENGINE_URL = import.meta.env.VITE_ENGINE_URL;
+const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 async function verifyGithubToken(token) {
   try {
@@ -17,6 +19,9 @@ async function verifyGithubToken(token) {
 
 export default function Baglan() {
   const { t } = useTranslation("connect");
+  // Lokal memory durumu artık backend'e sorulmuyor — Karar #78: memory
+  // tamamen lokal (Tauri hot/warm/cold), bu hook bootstrap'ı kendi yapar.
+  const { isLoading: memoryLoading, syncError: memorySyncError } = useSovereignMemory();
 
   const SERVICES = [
     { key: "engine", label: t("services.engine.label"), desc: t("services.engine.desc") },
@@ -48,27 +53,30 @@ export default function Baglan() {
 
   useEffect(() => { checkHealth(); }, []);
 
+  // Memory durumu, hook'un kendi bootstrap/sync state'inden türetilir.
+  // Web'de (IS_TAURI=false) memory zaten kapsam dışı (Karar #78) — "error"
+  // yerine nötr bir "devre dışı" durumu göstermek daha doğru olurdu, ama
+  // mevcut checking/ok/error setine sadık kalmak için: web'de "error",
+  // Tauri'de yükleme bitince "ok", senkron hatası varsa "error".
+  useEffect(() => {
+    if (!IS_TAURI) {
+      setHealth((h) => ({ ...h, memory: "error" }));
+      return;
+    }
+    if (memoryLoading) {
+      setHealth((h) => ({ ...h, memory: "checking" }));
+    } else {
+      setHealth((h) => ({ ...h, memory: memorySyncError ? "error" : "ok" }));
+    }
+  }, [memoryLoading, memorySyncError]);
+
   const checkHealth = async () => {
-    setHealth({ engine: "checking", github: "checking", memory: "checking" });
+    setHealth((h) => ({ ...h, engine: "checking", github: "checking" }));
 
     try {
       const res = await fetch(`${ENGINE_URL}/health`);
       setHealth((h) => ({ ...h, engine: res.ok ? "ok" : "error" }));
     } catch { setHealth((h) => ({ ...h, engine: "error" })); }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
-      const res = await fetch(`${ENGINE_URL}/memory/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authHeader ? { Authorization: authHeader } : {}),
-        },
-        body: JSON.stringify({ project_id: "00000000-0000-0000-0000-000000000000", query: "test", top_k: 1 }),
-      });
-      setHealth((h) => ({ ...h, memory: res.ok ? "ok" : "error" }));
-    } catch { setHealth((h) => ({ ...h, memory: "error" })); }
 
     // SEC-01: token localStorage'da yok — backend /status endpoint'inden kontrol et
     try {
@@ -312,5 +320,4 @@ export default function Baglan() {
       </div>
     </div>
   );
-    }
-    
+}
