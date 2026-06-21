@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiCall } from "../../lib/apiClient";
+import { supabase } from "../../lib/supabaseClient";
+import { ensureProject } from "../../utils/ensureProject.js";
 
 const DEFAULT_PROJECT = "my-saas";
 
 export default function ProjHafizasi() {
+  const [projectId, setProjectId]     = useState(null);
   const [fileName, setFileName]       = useState("");
   const [content, setContent]         = useState("");
   const [query, setQuery]             = useState("");
@@ -12,15 +15,21 @@ export default function ProjHafizasi() {
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
 
+  useEffect(() => {
+    ensureProject(supabase, DEFAULT_PROJECT)
+      .then(setProjectId)
+      .catch((e) => setError(e.message));
+  }, []);
+
   const handleUpload = async () => {
-    if (!fileName || !content) return;
+    if (!fileName || !content || !projectId) return;
     setLoading(true);
     setError("");
     try {
       const data = await apiCall("/memory/upload", {
         method: "POST",
         body: JSON.stringify({
-          project_id: DEFAULT_PROJECT,
+          project_id: projectId,
           file_name:  fileName,
           content,
         }),
@@ -42,14 +51,14 @@ export default function ProjHafizasi() {
   };
 
   const handleQuery = async () => {
-    if (!query) return;
+    if (!query || !projectId) return;
     setLoading(true);
     setError("");
     try {
       const data = await apiCall("/memory/query", {
         method: "POST",
         body: JSON.stringify({
-          project_id: DEFAULT_PROJECT,
+          project_id: projectId,
           query,
           top_k: 3,
         }),
@@ -93,7 +102,7 @@ export default function ProjHafizasi() {
         <button
           className="btn-primary"
           onClick={handleUpload}
-          disabled={loading || !fileName || !content}
+          disabled={loading || !fileName || !content || !projectId}
         >
           {loading ? "Yükleniyor..." : "+ Hafızaya Ekle"}
         </button>
@@ -121,7 +130,7 @@ export default function ProjHafizasi() {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleQuery()}
           />
-          <button className="btn-primary" onClick={handleQuery} disabled={loading || !query}>
+          <button className="btn-primary" onClick={handleQuery} disabled={loading || !query || !projectId}>
             Sor
           </button>
         </div>
@@ -144,4 +153,5 @@ export default function ProjHafizasi() {
       </section>
     </div>
   );
-}
+          }
+         
