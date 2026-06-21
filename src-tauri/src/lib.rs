@@ -46,11 +46,8 @@ pub fn run() {
             if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) {
                 let _ = writeln!(file, "[{}] setup() entered", chrono_now());
             }
-            #[cfg(debug_assertions)]
-            {
-                if let Some(window) = app.get_webview_window("main") {
-                    window.open_devtools();
-                }
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
             }
             Ok(())
         })
