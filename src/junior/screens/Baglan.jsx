@@ -57,9 +57,14 @@ export default function Baglan() {
     } catch { setHealth((h) => ({ ...h, engine: "error" })); }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : null;
       const res = await fetch(`${ENGINE_URL}/memory/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
         body: JSON.stringify({ project_id: "health-check", query: "test", top_k: 1 }),
       });
       setHealth((h) => ({ ...h, memory: res.ok ? "ok" : "error" }));
